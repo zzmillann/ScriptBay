@@ -1,4 +1,13 @@
-//javascript simple
+import cors from 'cors';
+import express from 'express';
+import endpointCliente from './Routes/endpointCliente.js';
 
-let nombre = "Programador";
-alert("¡Hola, " + nombre + "! Bienvenido al lado oscuro (tenemos galletas y código).");
+export default (serverExpress) => {
+
+    serverExpress.use(express.json());
+    serverExpress.use(express.urlencoded({ extended: false }));
+    serverExpress.use(cors());
+
+    serverExpress.use('/api/Cliente', endpointCliente);
+
+};
