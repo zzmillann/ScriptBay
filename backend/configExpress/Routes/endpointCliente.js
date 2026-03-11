@@ -1,52 +1,114 @@
 import express from 'express';
+import { supabase } from '../supabaseClient.js';
 const objetoRouter = express.Router();
 
 objetoRouter.post('/Registro', async (req, res, next) => {
+
     try {
-        // 1º extraer del body los datos del formulario: const { email, password, nombre } = req.body;
-        // 2º crear el usuario en supabase auth (guarda en auth.users de postgres):
-        //    const { data, error } = await supabase.auth.signUp({ email, password });
-        //    if (error) throw new Error(error.message);
-        // 3º si tienes tabla propia 'perfiles' para datos extra (nombre, avatar...):
-        //    await supabase.from('perfiles').insert({ id: data.user.id, nombre });
-        // 4º supabase manda el email de confirmacion automaticamente si lo tienes activado en el dashboard
-        // 5º enviar respuesta al cliente react:
-        //    res.status(200).send({ codigo: 0, mensaje: 'Registro ok, revisa tu email' });
+
+        const { email, password, nombre } = req.body // 1º extraer del body los datos del formulario
+
+        const { data, error } = await supabase.auth.signUp({ email: email, password: password }) // 2º crear el usuario en supabase auth (guarda en auth.users de postgres)
+
+        if (error) throw error //si pasa algo se lanza el error y se sale del try
+
+        const user = data.user // 3º si todo ok, extraemos el objeto user
+
+        if (user) {
+
+            const { error: perfilError } = await supabase
+                .from('perfiles') // 4º insertamos el resto de datos en la tabla 'perfiles'
+                .insert({
+                    id: user.id,
+                    nombre: nombre
+                })
+
+            if (perfilError) throw perfilError //si pasa algo se lanza el error y se sale del try
+        }
+
+        res.status(200).send({
+            codigo: 0,
+            mensaje: "Registro correcto. Revisa tu email"
+        })
+
     } catch (error) {
-        console.log(`error en registro: ${error}`);
-        res.status(200).send({ codigo: 1, mensaje: `error en registro: ${error}` });
+
+        console.log(error)
+
+        res.status(200).send({
+            codigo: 1,
+            mensaje: error.message
+        })
+
     }
+
 });
+
+
+
 
 objetoRouter.post('/Login', async (req, res, next) => {
     try {
-        // 1º extraer del body: const { email, password } = req.body;
-        // 2º autenticar con supabase (comprueba contra auth.users de postgres):
-        //    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        //    if (error) throw new Error(error.message);
-        // 3º de la respuesta sacas el token JWT y los datos del usuario:
-        //    const { session, user } = data;
-        //    session.access_token  <-- JWT para mandarlo al cliente react y guardarlo en el state global
-        // 4º si tienes tabla 'perfiles' para datos extra, haces un select:
-        //    const { data: perfil } = await supabase.from('perfiles').select('*').eq('id', user.id).single();
-        // 5º enviar respuesta al cliente react con datos del usuario y el token:
-        //    res.status(200).send({ codigo: 0, mensaje: 'Login ok', datosCliente: { ...user, ...perfil }, accessToken: session.access_token });
+
+        const { email, password } = req.body // 1º extraer del body los datos del formulario
+
+        const { data, error } = await supabase.auth.signInWithPassword({ email: email, password: password }) // 2º iniciar sesión en supabase auth
+
+        if (error) throw error //si pasa algo se lanza el error y se sale del try
+
+        const user = data.user // 3º si todo ok, extraemos el objeto user
+        const session = data.session // 4º si todo ok, extraemos el objeto session
+
+        const { data: perfil } = await supabase
+            .from('perfiles')
+            .select('*')
+            .eq('id', user.id) // 5º buscar el perfil del usuario en la tabla 'perfiles'
+            .single()
+
+        res.status(200).send({
+            codigo: 0,
+            mensaje: "Login correcto",
+            accessToken: session.access_token, // 6º si todo ok, devolvemos el token de acceso y los datos del cliente
+            datosCliente: {
+                ...user, // 7º si todo ok, devolvemos los datos del cliente
+                ...perfil
+            }
+        })
+
     } catch (error) {
-        console.log(`error en login: ${error}`);
-        res.status(200).send({ codigo: 2, mensaje: `error en login: ${error}` });
+
+        console.log(error)
+
+        res.status(200).send({
+            codigo: 2,
+            mensaje: error.message
+        })
+
     }
+
 });
 
 objetoRouter.post('/Logout', async (req, res, next) => {
     try {
-        // 1º cerrar la sesion en supabase (invalida el token JWT en el servidor):
-        //    const { error } = await supabase.auth.signOut();
-        //    if (error) throw new Error(error.message);
-        // 2º enviar respuesta al cliente react para que limpie el state global y el localStorage:
-        //    res.status(200).send({ codigo: 0, mensaje: 'Logout ok' });
+
+        const { error } = await supabase.auth.signOut() // 1º cerrar sesión en supabase auth
+
+        if (error) throw error //si pasa algo se lanza el error y se sale del try
+
+        res.status(200).send({
+            codigo: 0,
+            mensaje: "Logout correcto"
+        })
+
     } catch (error) {
-        console.log(`error en logout: ${error}`);
-        res.status(200).send({ codigo: 3, mensaje: `error en logout: ${error}` });
+
+        console.log(error)
+
+        res.status(200).send({
+            codigo: 3,
+            mensaje: error.message
+        })
+
     }
 });
 
