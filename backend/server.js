@@ -1,7 +1,7 @@
 import 'dotenv/config';
-
 import express from 'express';
 import configPipeline from './configExpress/pipeline.js';
+
 
 const serverExpress = express();
 configPipeline(serverExpress);
