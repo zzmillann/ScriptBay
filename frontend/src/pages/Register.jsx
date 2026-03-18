@@ -1,9 +1,44 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Terminal, Github, Mail, Lock, User, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { postAuth } from '../services/authClient';
 
 const Register = () => {
+    const [nombre, setNombre] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [mensaje, setMensaje] = useState('');
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+
+        setIsLoading(true);
+        setMensaje('');
+
+        try {
+            const data = await postAuth('/Registro', { nombre, email, password });
+
+            if (data.codigo !== 0) {
+                setMensaje(data.mensaje || 'No se pudo completar el registro.');
+                console.warn('[AUTH TRACE] registro fallido ->', data);
+                return;
+            }
+
+            console.log('[AUTH TRACE] registro correcto para:', email);
+            setMensaje(`${data.mensaje}. Ahora puedes iniciar sesión.`);
+            setNombre('');
+            setEmail('');
+            setPassword('');
+        } catch (error) {
+            console.error('[AUTH TRACE] error de red en registro', error);
+            setMensaje('Error de red al registrarte. Revisa backend y consola.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen flex items-center justify-center p-6 pt-32">
             <motion.div
@@ -19,7 +54,7 @@ const Register = () => {
                     <p className="text-white/40 font-normal">Únete al mercado tecnológico de élite</p>
                 </div>
 
-                <form className="space-y-6">
+                <form className="space-y-6" onSubmit={handleSubmit}>
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-white/70 ml-1">Nombre Completo</label>
                         <div className="relative">
@@ -28,6 +63,9 @@ const Register = () => {
                                 type="text"
                                 placeholder="Juan Pérez"
                                 className="input-field pl-12 h-12"
+                                value={nombre}
+                                onChange={(event) => setNombre(event.target.value)}
+                                required
                             />
                         </div>
                     </div>
@@ -40,6 +78,9 @@ const Register = () => {
                                 type="email"
                                 placeholder="nombre@ejemplo.com"
                                 className="input-field pl-12 h-12"
+                                value={email}
+                                onChange={(event) => setEmail(event.target.value)}
+                                required
                             />
                         </div>
                     </div>
@@ -52,13 +93,20 @@ const Register = () => {
                                 type="password"
                                 placeholder="••••••••"
                                 className="input-field pl-12 h-12"
+                                value={password}
+                                onChange={(event) => setPassword(event.target.value)}
+                                required
                             />
                         </div>
                     </div>
 
-                    <button type="submit" className="btn-primary w-full h-12 flex items-center justify-center gap-2 font-bold">
-                        Registrarse <ArrowRight className="w-4 h-4" />
+                    <button type="submit" disabled={isLoading} className="btn-primary w-full h-12 flex items-center justify-center gap-2 font-bold disabled:opacity-50">
+                        {isLoading ? 'Registrando...' : 'Registrarse'} <ArrowRight className="w-4 h-4" />
                     </button>
+
+                    {mensaje && (
+                        <p className="text-center text-sm text-white/70">{mensaje}</p>
+                    )}
                 </form>
 
                 <div className="mt-8">

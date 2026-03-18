@@ -1,9 +1,47 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Terminal, Github, Mail, Lock, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { postAuth, saveSession } from '../services/authClient';
 
 const Login = () => {
+    const navigate = useNavigate();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [mensaje, setMensaje] = useState('');
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+
+        setIsLoading(true);
+        setMensaje('');
+
+        try {
+            const data = await postAuth('/Login', { email, password });
+
+            if (data.codigo !== 0) {
+                setMensaje(data.mensaje || 'No se pudo iniciar sesión.');
+                console.warn('[AUTH TRACE] login fallido ->', data);
+                return;
+            }
+
+            saveSession({
+                accessToken: data.accessToken,
+                datosCliente: data.datosCliente
+            });
+
+            console.log('[AUTH TRACE] login correcto para:', data?.datosCliente?.email);
+            setMensaje('Login correcto. Redirigiendo al perfil...');
+            navigate('/profile');
+        } catch (error) {
+            console.error('[AUTH TRACE] error de red en login', error);
+            setMensaje('Error de red al iniciar sesión. Revisa backend y consola.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen flex items-center justify-center p-6 pt-32">
             <motion.div
@@ -19,7 +57,7 @@ const Login = () => {
                     <p className="text-white/40 font-normal">Continúa tu viaje en ScriptBay</p>
                 </div>
 
-                <form className="space-y-6">
+                <form className="space-y-6" onSubmit={handleSubmit}>
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-white/70 ml-1">Correo Electrónico</label>
                         <div className="relative">
@@ -28,6 +66,9 @@ const Login = () => {
                                 type="email"
                                 placeholder="nombre@ejemplo.com"
                                 className="input-field pl-12 h-12"
+                                value={email}
+                                onChange={(event) => setEmail(event.target.value)}
+                                required
                             />
                         </div>
                     </div>
@@ -43,13 +84,20 @@ const Login = () => {
                                 type="password"
                                 placeholder="••••••••"
                                 className="input-field pl-12 h-12"
+                                value={password}
+                                onChange={(event) => setPassword(event.target.value)}
+                                required
                             />
                         </div>
                     </div>
 
-                    <button type="submit" className="btn-primary w-full h-12 flex items-center justify-center gap-2 font-bold">
-                        Iniciar Sesión <ArrowRight className="w-4 h-4" />
+                    <button type="submit" disabled={isLoading} className="btn-primary w-full h-12 flex items-center justify-center gap-2 font-bold disabled:opacity-50">
+                        {isLoading ? 'Iniciando...' : 'Iniciar Sesión'} <ArrowRight className="w-4 h-4" />
                     </button>
+
+                    {mensaje && (
+                        <p className="text-center text-sm text-white/70">{mensaje}</p>
+                    )}
                 </form>
 
                 <div className="mt-8">
