@@ -41,9 +41,6 @@ const Navbar = () => {
             <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
                 {/* Logo */}
                 <Link to="/" className="flex items-center gap-2 group">
-                    <div className="bg-linear-to-br from-primary to-accent p-2 rounded-lg">
-                        <Terminal className="text-white w-5 h-5" />
-                    </div>
                     <span className="text-xl font-bold tracking-tight">
                         Script<span className="gradient-text">Bay</span>
                     </span>

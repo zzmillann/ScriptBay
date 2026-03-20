@@ -11,13 +11,9 @@ const ProductCard = ({ title, category, price, rating, reviews, image }) => {
             whileHover={{ y: -5 }}
             className="glass-card group overflow-hidden"
         >
-            {/* Image Container */}
-            <div className="relative h-48 overflow-hidden">
-                <img
-                    src={image || `https://picsum.photos/seed/${title}/600/400`}
-                    alt={title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
+            {/* Image Container (Foto en Negro) */}
+            <div className="relative h-48 overflow-hidden bg-black">
+                <div className="w-full h-full bg-black transition-transform duration-500 group-hover:scale-110"></div>
                 <div className="absolute inset-0 bg-linear-to-t from-darker to-transparent opacity-60"></div>
                 <div className="absolute top-4 right-4">
                     <span className="bg-dark/80 backdrop-blur-md text-primary text-xs font-bold px-3 py-1.2 rounded-full border border-primary/20">

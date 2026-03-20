@@ -35,6 +35,9 @@ const Profile = () => {
     const [feedback, setFeedback] = useState({ type: '', message: '' });
     const dragDataRef = useRef({ target: null, startX: 0, startY: 0, originX: 0, originY: 0 });
 
+    const [isDraggingBanner, setIsDraggingBanner] = useState(false);
+    const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
+
     useEffect(() => {
         const handleMouseMove = (event) => {
             const drag = dragDataRef.current;
@@ -80,8 +83,23 @@ const Profile = () => {
         setDraggingTarget(target);
     };
 
+    const handleDragOver = (e, target) => {
+        e.preventDefault();
+        if (target === 'banner') setIsDraggingBanner(true);
+        if (target === 'avatar') setIsDraggingAvatar(true);
+    };
+
+    const handleDragLeave = (e, target) => {
+        e.preventDefault();
+        if (target === 'banner') setIsDraggingBanner(false);
+        if (target === 'avatar') setIsDraggingAvatar(false);
+    };
+
     const onDropFile = async (event, target) => {
         event.preventDefault();
+        if (target === 'banner') setIsDraggingBanner(false);
+        if (target === 'avatar') setIsDraggingAvatar(false);
+        
         const file = event.dataTransfer.files?.[0];
 
         if (!file || !file.type.startsWith('image/')) {
@@ -98,7 +116,7 @@ const Profile = () => {
                 setAvatarUrl(imageUrl);
                 setAvatarOffset({ x: 0, y: 0 });
             }
-            setFeedback({ type: 'success', message: 'Imagen actualizada. Arrastrala para ajustar su posicion.' });
+            setFeedback({ type: 'success', message: 'Imagen lista para previsualizar. Arrástrala para encuadrar y guarda el perfil.' });
         } catch (error) {
             setFeedback({ type: 'error', message: error.message });
         }
@@ -119,7 +137,7 @@ const Profile = () => {
                 setAvatarUrl(imageUrl);
                 setAvatarOffset({ x: 0, y: 0 });
             }
-            setFeedback({ type: 'success', message: 'Imagen actualizada. Arrastrala para ajustar su posicion.' });
+            setFeedback({ type: 'success', message: 'Imagen lista para previsualizar. Arrástrala para encuadrar y guarda el perfil.' });
         } catch (error) {
             setFeedback({ type: 'error', message: error.message });
         } finally {
@@ -187,10 +205,19 @@ const Profile = () => {
             <div className="glass-card overflow-hidden border-none">
                 <div className="relative">
                     <div
-                        className="relative h-40 sm:h-48 overflow-hidden border-b border-white/10 bg-linear-to-r from-primary/30 via-primary/20 to-accent/25"
-                        onDragOver={(event) => event.preventDefault()}
+                        className={`relative h-40 sm:h-48 overflow-hidden border-b border-white/10 bg-linear-to-r from-primary/30 via-primary/20 to-accent/25 transition-all duration-300 ${isDraggingBanner ? 'brightness-75 outline outline-4 outline-primary -outline-offset-4' : ''}`}
+                        onDragEnter={(event) => handleDragOver(event, 'banner')}
+                        onDragOver={(event) => handleDragOver(event, 'banner')}
+                        onDragLeave={(event) => handleDragLeave(event, 'banner')}
                         onDrop={(event) => onDropFile(event, 'banner')}
                     >
+                        {isDraggingBanner && (
+                            <div className="absolute inset-0 z-50 flex items-center justify-center bg-darker/50 backdrop-blur-sm pointer-events-none">
+                                <span className="text-white font-bold bg-primary px-5 py-3 rounded-2xl flex items-center gap-2 shadow-xl animate-bounce">
+                                    <Upload className="w-5 h-5" /> Suelta aquí para previsualizar
+                                </span>
+                            </div>
+                        )}
                         {bannerUrl && (
                             <img
                                 src={bannerUrl}
@@ -221,10 +248,17 @@ const Profile = () => {
                         <div className="mt-4 sm:mt-5 flex flex-col md:flex-row gap-6 md:gap-8 md:items-end md:justify-between">
                             <div className="flex flex-col sm:flex-row sm:items-end gap-5">
                                 <div
-                                    className="relative -mt-10 sm:-mt-12 md:-mt-16 w-32 h-32 rounded-full overflow-hidden border-4 border-darker bg-linear-to-br from-primary to-accent"
-                                    onDragOver={(event) => event.preventDefault()}
+                                    className={`relative -mt-10 sm:-mt-12 md:-mt-16 w-32 h-32 rounded-full overflow-hidden border-4 bg-linear-to-br from-primary to-accent transition-all duration-300 ${isDraggingAvatar ? 'border-primary outline outline-2 outline-primary outline-offset-2 brightness-75 bg-darker' : 'border-darker'}`}
+                                    onDragEnter={(event) => handleDragOver(event, 'avatar')}
+                                    onDragOver={(event) => handleDragOver(event, 'avatar')}
+                                    onDragLeave={(event) => handleDragLeave(event, 'avatar')}
                                     onDrop={(event) => onDropFile(event, 'avatar')}
                                 >
+                                    {isDraggingAvatar && (
+                                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-darker/60 backdrop-blur-sm pointer-events-none">
+                                            <Upload className="w-8 h-8 text-primary animate-pulse" />
+                                        </div>
+                                    )}
                                     {avatarUrl ? (
                                         <img
                                             src={avatarUrl}
