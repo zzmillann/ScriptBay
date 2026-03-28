@@ -1,14 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Github, Linkedin, MapPin, Move, Plus, Save, Trash2, Upload, User } from 'lucide-react';
-
-const initialForm = {
-    nombre: 'Juan Perez',
-    titular: 'Desarrollador Full Stack',
-    ubicacion: 'Madrid, Espana',
-    educacion: ['Grado en Ingenieria Informatica - UPM'],
-    github: '',
-    linkedin: ''
-};
+import { getSession, saveSession } from '../services/authClient.js';
 
 const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -25,7 +17,7 @@ const getInitials = (name) => name
     .join('');
 
 const Profile = () => {
-    const [form, setForm] = useState(initialForm);
+    const [form, setForm] = useState({ nombre: '', titular: '', ubicacion: '', educacion: [], github: '', linkedin: '' });
     const [nuevaEducacion, setNuevaEducacion] = useState('');
     const [bannerUrl, setBannerUrl] = useState('');
     const [avatarUrl, setAvatarUrl] = useState('');
@@ -37,6 +29,28 @@ const Profile = () => {
 
     const [isDraggingBanner, setIsDraggingBanner] = useState(false);
     const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
+
+    useEffect(() => {
+        const session = getSession();
+        if (!session) return;
+        const d = session.datosCliente;
+        setForm({
+            nombre: d.nombre || '',
+            titular: d.titular || '',
+            ubicacion: d.ubicacion || '',
+            educacion: d.educacion || [],
+            github: d.github || '',
+            linkedin: d.linkedin || ''
+        });
+        if (d.avatar) {
+            setAvatarUrl(d.avatar);
+            setAvatarOffset(d.avatar_offset || { x: 0, y: 0 });
+        }
+        if (d.banner) {
+            setBannerUrl(d.banner);
+            setBannerOffset(d.banner_offset || { x: 0, y: 0 });
+        }
+    }, []);
 
     useEffect(() => {
         const handleMouseMove = (event) => {
@@ -162,39 +176,53 @@ const Profile = () => {
         }));
     };
 
-    const handleSave = async () => {
+    const HandlerGuardarPerfil = async () => {
+        const session = getSession();
+        if (!session) {
+            setFeedback({ type: 'error', message: 'Debes iniciar sesión para guardar el perfil.' });
+            return;
+        }
+
         const payload = {
-            name: form.nombre,
-            title: form.titular,
-            location: form.ubicacion,
-            education: form.educacion,
+            nombre: form.nombre,
+            titular: form.titular,
+            ubicacion: form.ubicacion,
+            educacion: form.educacion,
             github: form.github || '',
             linkedin: form.linkedin || '',
             avatar: avatarUrl || null,
             banner: bannerUrl || null,
-            avatarOffset,
-            bannerOffset
+            avatar_offset: avatarOffset,
+            banner_offset: bannerOffset
         };
 
         try {
-            console.log('[PROFILE TRACE] Enviando datos a /CambiarPerfil ->', payload);
-
-            const response = await fetch('http://localhost:3000/CambiarPerfil', {
+            const response = await fetch('http://localhost:3000/api/Cliente/ActualizarPerfil', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.accessToken}`
                 },
                 body: JSON.stringify(payload)
             });
 
             const data = await response.json();
-            console.log('[PROFILE TRACE] Respuesta de /CambiarPerfil <-', data);
 
-            if (response.ok) {
-                setFeedback({ type: 'success', message: 'Perfil guardado correctamente.' });
-            } else {
-                setFeedback({ type: 'error', message: data?.mensaje || 'No fue posible guardar el perfil.' });
+            if (data.codigo !== 0) {
+                setFeedback({ type: 'error', message: data.mensaje || 'No fue posible guardar el perfil.' });
+                return;
             }
+
+            saveSession({
+                ...session,
+                datosCliente: {
+                    ...session.datosCliente,
+                    ...payload
+                }
+            });
+
+            setFeedback({ type: 'success', message: 'Perfil guardado correctamente.' });
+
         } catch (error) {
             setFeedback({ type: 'error', message: error.message || 'Error inesperado al guardar el perfil.' });
         }
@@ -419,7 +447,7 @@ const Profile = () => {
 
                             <button
                                 type="button"
-                                onClick={handleSave}
+                                onClick={HandlerGuardarPerfil}
                                 className="btn-primary w-full mt-5 flex items-center justify-center gap-2"
                             >
                                 <Save className="w-4 h-4" /> Guardar perfil

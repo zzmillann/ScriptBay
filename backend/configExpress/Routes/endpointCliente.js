@@ -112,4 +112,42 @@ objetoRouter.post('/Logout', async (req, res, next) => {
     }
 });
 
+objetoRouter.post('/ActualizarPerfil', async (req, res, next) => {
+    try {
+
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+
+        if (!token) throw new Error('No autorizado');
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+        if (authError) throw authError;
+
+        const { nombre, titular, ubicacion, educacion, github, linkedin, avatar, banner, avatar_offset, banner_offset } = req.body;
+
+        const { error } = await supabase
+            .from('perfiles')
+            .update({ nombre, titular, ubicacion, educacion, github, linkedin, avatar, banner, avatar_offset, banner_offset })
+            .eq('id', user.id);
+
+        if (error) throw error;
+
+        res.status(200).send({
+            codigo: 0,
+            mensaje: 'Perfil actualizado correctamente'
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        res.status(200).send({
+            codigo: 4,
+            mensaje: error.message
+        });
+
+    }
+});
+
 export default objetoRouter;
