@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, ShoppingCart, User, Settings, Menu, X, Terminal } from 'lucide-react';
+import { Search, ShoppingCart, User, Menu, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { clearSession, getSession, postAuth } from '../services/authClient';
 
@@ -39,14 +39,12 @@ const Navbar = () => {
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 glass-card mx-4 my-4 border-none !rounded-2xl">
             <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-                {/* Logo */}
                 <Link to="/" className="flex items-center gap-2 group">
                     <span className="text-xl font-bold tracking-tight">
                         Script<span className="gradient-text">Bay</span>
                     </span>
                 </Link>
 
-                {/* Desktop Search */}
                 <div className="hidden md:flex items-center flex-1 max-w-md mx-8">
                     <div className="relative w-full">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 w-4 h-4" />
@@ -58,7 +56,6 @@ const Navbar = () => {
                     </div>
                 </div>
 
-                {/* Action Icons */}
                 <div className="flex items-center gap-4">
                     {session ? (
                         <>
@@ -77,6 +74,12 @@ const Navbar = () => {
                             </Link>
                         </>
                     )}
+                    <Link
+                        to="/create-product"
+                        className="hidden md:inline-flex btn-primary btn-shine text-sm px-4 py-2 shadow-none border border-primary/40 bg-primary/15"
+                    >
+                        Publicar producto
+                    </Link>
                     <Link to="/cart" className="p-2 hover:bg-white/5 rounded-xl transition-colors relative">
                         <ShoppingCart className="w-5 h-5 text-white/70" />
                         <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
@@ -93,7 +96,6 @@ const Navbar = () => {
                 </div>
             </div>
 
-            {/* Mobile Menu */}
             {isMenuOpen && (
                 <div className="md:hidden px-6 pb-6 pt-2 border-t border-glass-border">
                     <div className="mb-4">
@@ -105,6 +107,7 @@ const Navbar = () => {
                     </div>
                     <div className="flex flex-col gap-2">
                         <Link to="/" className="p-3 hover:bg-white/5 rounded-xl transition-colors">Mercado</Link>
+                        <Link to="/create-product" className="p-3 hover:bg-white/5 rounded-xl transition-colors">Publicar</Link>
                         <Link to="/profile" className="p-3 hover:bg-white/5 rounded-xl transition-colors">Perfil</Link>
                         <Link to="/settings" className="p-3 hover:bg-white/5 rounded-xl transition-colors">Configuración</Link>
                         {session ? (
