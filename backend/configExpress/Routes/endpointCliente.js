@@ -112,6 +112,7 @@ objetoRouter.post('/Logout', async (req, res, next) => {
     }
 });
 
+<<<<<<< Updated upstream
 objetoRouter.post('/ActualizarPerfil', async (req, res, next) => {
     try {
 
@@ -147,6 +148,63 @@ objetoRouter.post('/ActualizarPerfil', async (req, res, next) => {
             mensaje: error.message
         });
 
+=======
+objetoRouter.post('/PerfilUsuario', async (req, res, next) => {
+    try {
+        const {
+            componentName,
+            nombre,
+            titular,
+            educacion,
+            github,
+            linkedin,
+            bannerImage,
+            profileImage,
+            bannerOffset,
+            avatarOffset,
+            updatedAt
+        } = req.body;
+
+        if (!nombre || !nombre.trim()) {
+            return res.status(200).send({
+                codigo: 1,
+                mensaje: 'El nombre del perfil es obligatorio'
+            });
+        }
+
+        const perfilNormalizado = {
+            componentName: componentName || 'PerfilLinked',
+            nombre: nombre.trim(),
+            titular: titular || '',
+            educacion: Array.isArray(educacion) ? educacion : [],
+            github: github || null,
+            linkedin: linkedin || null,
+            bannerImage: bannerImage || null,
+            profileImage: profileImage || null,
+            bannerOffset: bannerOffset || { x: 0, y: 0 },
+            avatarOffset: avatarOffset || { x: 0, y: 0 },
+            updatedAt: updatedAt || new Date().toISOString()
+        };
+
+        console.log('[PerfilUsuario] payload recibido:', {
+            ...perfilNormalizado,
+            bannerImage: perfilNormalizado.bannerImage ? 'data-url-recibido' : null,
+            profileImage: perfilNormalizado.profileImage ? 'data-url-recibido' : null
+        });
+
+        return res.status(200).send({
+            codigo: 0,
+            mensaje: 'PerfilUsuario recibido en Node correctamente',
+            datosPerfil: perfilNormalizado
+        });
+    } catch (error) {
+        console.log(error);
+
+        return res.status(200).send({
+            codigo: 2,
+            mensaje: error.message
+        });
+>>>>>>> Stashed changes
     }
 });
 
