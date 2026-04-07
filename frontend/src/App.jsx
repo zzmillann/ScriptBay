@@ -1,26 +1,47 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
+import CreateProduct from './pages/CreateProduct';
+import ProductDetail from './pages/ProductDetail';
+import ParticlesBackground from './components/ParticlesBackground';
 import './index.css';
 
-function App() {
+const PageShell = () => {
+  const location = useLocation();
+
   return (
-    <Router>
-      <div className="min-h-screen flex flex-col">
+    <div className="relative min-h-screen flex flex-col overflow-hidden">
+      <ParticlesBackground />
+      <div className="relative z-10 flex flex-col flex-grow">
         <Navbar />
         <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/profile" element={<Profile />} />
-          </Routes>
+          <LayoutGroup id="product-navigation">
+            <AnimatePresence mode="sync">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.38, ease: 'easeOut' }}
+              >
+                <Routes location={location}>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/create-product" element={<CreateProduct />} />
+                  <Route path="/producto/:id" element={<ProductDetail />} />
+                </Routes>
+              </motion.div>
+            </AnimatePresence>
+          </LayoutGroup>
         </main>
 
-        {/* Footer */}
         <footer className="py-12 px-6 border-t border-glass-border bg-darker/50 backdrop-blur-sm mt-auto">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="text-xl font-bold tracking-tight">
@@ -36,6 +57,14 @@ function App() {
           </div>
         </footer>
       </div>
+    </div>
+  );
+};
+
+function App() {
+  return (
+    <Router>
+      <PageShell />
     </Router>
   )
 }
