@@ -112,7 +112,6 @@ objetoRouter.post('/Logout', async (req, res, next) => {
     }
 });
 
-<<<<<<< Updated upstream
 objetoRouter.post('/ActualizarPerfil', async (req, res, next) => {
     try {
 
@@ -148,7 +147,9 @@ objetoRouter.post('/ActualizarPerfil', async (req, res, next) => {
             mensaje: error.message
         });
 
-=======
+    }
+});
+
 objetoRouter.post('/PerfilUsuario', async (req, res, next) => {
     try {
         const {
@@ -204,7 +205,6 @@ objetoRouter.post('/PerfilUsuario', async (req, res, next) => {
             codigo: 2,
             mensaje: error.message
         });
->>>>>>> Stashed changes
     }
 });
 
