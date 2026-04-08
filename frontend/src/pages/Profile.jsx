@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Github, Linkedin, MapPin, Move, Plus, Save, Trash2, Upload, User } from 'lucide-react';
 import { getSession, saveSession } from '../services/authClient.js';
+import ProductCard from '../components/ProductCard.jsx';
 
 const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -29,6 +30,7 @@ const Profile = () => {
 
     const [isDraggingBanner, setIsDraggingBanner] = useState(false);
     const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
+    const [misProductos, setMisProductos] = useState([]);
 
     useEffect(() => {
         const session = getSession();
@@ -50,6 +52,23 @@ const Profile = () => {
             setBannerUrl(d.banner);
             setBannerOffset(d.banner_offset || { x: 0, y: 0 });
         }
+
+        const cargarMisProductos = async () => {
+            try {
+                const response = await fetch('http://localhost:3000/api/productos/MisProductos', {
+                    headers: {
+                        Authorization: `Bearer ${session.accessToken}`
+                    }
+                });
+                const data = await response.json();
+                if (data.codigo === 0) {
+                    setMisProductos(data.productos);
+                }
+            } catch (error) {
+                console.log(error);
+            }
+        };
+        cargarMisProductos();
     }, []);
 
     useEffect(() => {
@@ -461,6 +480,28 @@ const Profile = () => {
                         </div>
                     </aside>
                 </div>
+            </div>
+
+            <div className="mt-10 px-6 sm:px-10 pb-10">
+                <h2 className="text-2xl font-bold mb-6">Mis publicaciones</h2>
+                {misProductos.length === 0 ? (
+                    <p className="text-white/40 text-sm">Todavía no tienes publicaciones.</p>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {misProductos.map((product) => (
+                            <ProductCard
+                                key={product.id}
+                                id={product.id}
+                                title={product.titulo}
+                                category={product.categoria || product.tipo}
+                                price={product.precio ?? 0}
+                                rating={0}
+                                reviews={0}
+                                image={product.imagen}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );

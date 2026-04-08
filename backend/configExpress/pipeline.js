@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express from 'express';
 import endpointCliente from './Routes/endpointCliente.js';
+import endpointProductos from './Routes/endpointProductos.js';
 
 export default (serverExpress) => {
 
@@ -9,5 +10,6 @@ export default (serverExpress) => {
     serverExpress.use(cors());
 
     serverExpress.use('/api/Cliente', endpointCliente);
+    serverExpress.use('/api/productos', endpointProductos);
 
 };

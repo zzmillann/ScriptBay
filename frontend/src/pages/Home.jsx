@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import ProductCard from '../components/ProductCard';
 import { SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
-import { products } from '../data/products';
 
 const Home = () => {
     const mouseX = useMotionValue(0);
@@ -15,10 +14,26 @@ const Home = () => {
     const titleX = useTransform(smoothX, [-400, 400], [-30, 30]);
     const titleY = useTransform(smoothY, [-400, 400], [-15, 15]);
 
+    const [productos, setProductos] = useState([]);
     const [paginaActual, setPaginaActual] = useState(1);
     const PRODUCTOS_POR_PAGINA = 40;
-    const totalPaginas = Math.ceil(products.length / PRODUCTOS_POR_PAGINA);
-    const productosPagina = products.slice((paginaActual - 1) * PRODUCTOS_POR_PAGINA, paginaActual * PRODUCTOS_POR_PAGINA);
+    const totalPaginas = Math.ceil(productos.length / PRODUCTOS_POR_PAGINA);
+    const productosPagina = productos.slice((paginaActual - 1) * PRODUCTOS_POR_PAGINA, paginaActual * PRODUCTOS_POR_PAGINA);
+
+    useEffect(() => {
+        const cargarProductos = async () => {
+            try {
+                const response = await fetch('http://localhost:3000/api/productos/ObtenerProductos');
+                const data = await response.json();
+                if (data.codigo === 0) {
+                    setProductos(data.productos);
+                }
+            } catch (error) {
+                console.log(error);
+            }
+        };
+        cargarProductos();
+    }, []);
 
     const HandlerClickAnterior = () => {
         if (paginaActual > 1) setPaginaActual(paginaActual - 1);
@@ -59,7 +74,16 @@ const Home = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {productosPagina.map((product) => (
-                    <ProductCard key={product.id} {...product} id={product.id} />
+                    <ProductCard
+                        key={product.id}
+                        id={product.id}
+                        title={product.titulo}
+                        category={product.categoria || product.tipo}
+                        price={product.precio ?? 0}
+                        rating={0}
+                        reviews={0}
+                        image={product.imagen}
+                    />
                 ))}
             </div>
 
