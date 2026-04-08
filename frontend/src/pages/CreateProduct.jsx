@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Euro, FileText, ImagePlus, Tag } from 'lucide-react';
+import { getSession } from '../services/authClient.js';
 
 const initialForm = {
   tipo: 'producto',
@@ -102,16 +103,26 @@ const CreateProduct = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/productos', {
+      const session = getSession();
+      const accessToken = session?.accessToken;
+
+      const response = await fetch('http://localhost:3000/api/productos/GuardarProducto', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
         },
         body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
         throw new Error('No se pudo enviar el formulario.');
+      }
+
+      const data = await response.json();
+
+      if (data.codigo !== 0) {
+        throw new Error(data.mensaje || 'No se pudo guardar el producto.');
       }
 
       setFeedback({
