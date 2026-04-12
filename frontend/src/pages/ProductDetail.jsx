@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MessageCircle, ShoppingCart, Star, ShieldCheck, PackageCheck, ClipboardList } from 'lucide-react';
+import { ArrowLeft, MessageCircle, ShoppingCart, Star, ShieldCheck, PackageCheck, ClipboardList, X, CreditCard, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import { getProductById, getRelatedProducts } from '../data/products';
+import { postPagarProducto } from '../services/stripeClient';
+import { getSession } from '../services/authClient';
 
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -28,6 +31,41 @@ const sectionBaseClass =
 const ProductDetail = () => {
   const { id } = useParams();
   const product = getProductById(id);
+
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [estadoPago, setEstadoPago] = useState('idle');
+  const [mensajePago, setMensajePago] = useState('');
+
+  const handleAbrirModal = () => {
+    const session = getSession();
+    if (!session) {
+      setEstadoPago('error');
+      setMensajePago('Debes iniciar sesión para comprar');
+      setModalAbierto(true);
+      return;
+    }
+    setEstadoPago('idle');
+    setMensajePago('');
+    setModalAbierto(true);
+  };
+
+  const handleCerrarModal = () => {
+    setModalAbierto(false);
+    setEstadoPago('idle');
+    setMensajePago('');
+  };
+
+  const handleConfirmarPago = async () => {
+    setEstadoPago('cargando');
+    const resultado = await postPagarProducto(product.title, product.price);
+    if (resultado.codigo === 0) {
+      setEstadoPago('ok');
+      setMensajePago(resultado.mensaje);
+    } else {
+      setEstadoPago('error');
+      setMensajePago(resultado.mensaje);
+    }
+  };
 
   if (!product) {
     return (
@@ -135,7 +173,7 @@ const ProductDetail = () => {
                   <motion.p layoutId={`product-price-${product.id}`} className="text-5xl font-black tracking-tight text-white">{product.price}€</motion.p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <button className="group relative isolate inline-flex items-center gap-2 overflow-hidden rounded-2xl border border-white/25 bg-linear-to-r from-white/18 via-violet-400/18 to-primary/28 px-6 py-3 font-bold text-white backdrop-blur-md shadow-[0_12px_28px_-14px_rgba(168,85,247,0.45)] transition-all duration-300 hover:scale-[1.04] hover:border-violet-300/45 hover:shadow-[0_20px_40px_-18px_rgba(168,85,247,0.62),0_0_16px_rgba(239,68,68,0.35)] active:scale-95">
+                  <button onClick={handleAbrirModal} className="group relative isolate inline-flex items-center gap-2 overflow-hidden rounded-2xl border border-white/25 bg-linear-to-r from-white/18 via-violet-400/18 to-primary/28 px-6 py-3 font-bold text-white backdrop-blur-md shadow-[0_12px_28px_-14px_rgba(168,85,247,0.45)] transition-all duration-300 hover:scale-[1.04] hover:border-violet-300/45 hover:shadow-[0_20px_40px_-18px_rgba(168,85,247,0.62),0_0_16px_rgba(239,68,68,0.35)] active:scale-95">
                     <span className="pointer-events-none absolute -inset-1 rounded-2xl opacity-45 blur-md transition-opacity duration-500 group-hover:opacity-80" style={auraStyle}></span>
                     <span className="pointer-events-none absolute inset-y-0 -left-[28%] w-[38%] -skew-x-12 bg-linear-to-r from-transparent via-white/60 to-transparent transition-all duration-700 group-hover:left-[118%]"></span>
                     <span className="pointer-events-none absolute inset-0 bg-linear-to-b from-white/12 to-transparent opacity-90"></span>
@@ -214,6 +252,77 @@ const ProductDetail = () => {
         )}
         </div>
       </motion.div>
+      {modalAbierto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 24 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.28, ease: 'easeOut' }}
+            className="relative w-full max-w-md rounded-3xl border border-white/10 bg-[#0e0e12] p-7 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7)]"
+          >
+            <button onClick={handleCerrarModal} className="absolute right-5 top-5 rounded-lg p-1 text-white/40 transition hover:text-white/80">
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="mb-5 flex items-center gap-2">
+              <span className="rounded-full border border-yellow-400/40 bg-yellow-400/10 px-3 py-1 text-xs font-semibold text-yellow-300">
+                🧪 Modo Desarrollador — Pago de Prueba
+              </span>
+            </div>
+
+            <h2 className="mb-1 text-xl font-bold">{product.title}</h2>
+            <p className="mb-6 text-3xl font-black text-white">{product.price}€</p>
+
+            <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-white/60">
+                <CreditCard className="h-4 w-4" /> Tarjeta de prueba Stripe
+              </div>
+              <p className="font-mono text-lg tracking-widest text-white">4242 4242 4242 4242</p>
+              <div className="mt-1 flex gap-4 text-sm text-white/50">
+                <span>EXP 12/34</span>
+                <span>CVC 123</span>
+              </div>
+            </div>
+
+            {estadoPago === 'idle' && (
+              <button
+                onClick={handleConfirmarPago}
+                className="w-full rounded-2xl border border-violet-400/30 bg-violet-600/20 py-3 font-bold text-white transition hover:bg-violet-600/35 hover:scale-[1.02] active:scale-95"
+              >
+                Confirmar Pago
+              </button>
+            )}
+
+            {estadoPago === 'cargando' && (
+              <div className="flex items-center justify-center gap-3 py-3 text-white/70">
+                <Loader className="h-5 w-5 animate-spin" /> Procesando pago...
+              </div>
+            )}
+
+            {estadoPago === 'ok' && (
+              <div className="flex flex-col items-center gap-3 py-2 text-center">
+                <CheckCircle className="h-10 w-10 text-green-400" />
+                <p className="font-semibold text-green-300">¡Pago realizado correctamente!</p>
+                <p className="text-sm text-white/50">{mensajePago}</p>
+                <button onClick={handleCerrarModal} className="mt-2 rounded-xl border border-white/15 bg-white/5 px-5 py-2 text-sm font-semibold transition hover:bg-white/10">
+                  Cerrar
+                </button>
+              </div>
+            )}
+
+            {estadoPago === 'error' && (
+              <div className="flex flex-col items-center gap-3 py-2 text-center">
+                <AlertCircle className="h-10 w-10 text-red-400" />
+                <p className="font-semibold text-red-300">Error al procesar el pago</p>
+                <p className="text-sm text-white/50">{mensajePago}</p>
+                <button onClick={handleCerrarModal} className="mt-2 rounded-xl border border-white/15 bg-white/5 px-5 py-2 text-sm font-semibold transition hover:bg-white/10">
+                  Cerrar
+                </button>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
     </section>
   );
 };
