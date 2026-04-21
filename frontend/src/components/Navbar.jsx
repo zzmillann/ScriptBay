@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Search, ShoppingCart, User, Menu, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { clearSession, getSession, postAuth } from '../services/authClient';
 import ThemeToggle from './ThemeToggle';
 
 const Navbar = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [session, setSession] = useState(getSession());
+    const navigate = useNavigate();
 
     useEffect(() => {
         const refreshSession = () => {
@@ -32,6 +33,7 @@ const Navbar = () => {
 
             clearSession();
             console.log('[AUTH TRACE] logout ejecutado');
+            navigate('/login');
         } catch (error) {
             console.error('[AUTH TRACE] error de red en logout', error);
         }

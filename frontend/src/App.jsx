@@ -1,6 +1,6 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
-import { useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -9,10 +9,22 @@ import Profile from './pages/Profile';
 import CreateProduct from './pages/CreateProduct';
 import ProductDetail from './pages/ProductDetail';
 import ParticlesBackground from './components/ParticlesBackground';
+import ChatAssistant from './components/ChatAssistant';
+import { getSession } from './services/authClient';
 import './index.css';
 
 const PageShell = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const session = getSession();
+    const publicPaths = ['/login', '/register'];
+    
+    if (!session && !publicPaths.includes(location.pathname)) {
+      navigate('/login');
+    }
+  }, [location.pathname, navigate]);
 
   return (
     <div className="relative min-h-screen flex flex-col overflow-hidden">
@@ -64,6 +76,9 @@ const PageShell = () => {
             <p className="text-xs text-faint">© 2026 ScriptBay Inc. Todos los derechos reservados.</p>
           </div>
         </footer>
+
+        {/* Chat Assistant Flotante */}
+        <ChatAssistant />
       </div>
     </div>
   );
