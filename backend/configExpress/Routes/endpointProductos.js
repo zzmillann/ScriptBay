@@ -56,6 +56,44 @@ objetoRouter.post('/GuardarProducto', async (req, res, next) => {
 });
 
 
+objetoRouter.get('/ObtenerProductoPorId/:id', async (req, res, next) => {
+
+    try {
+
+        const { id } = req.params;
+
+        const { data: producto, error } = await supabase
+            .from('productos')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+
+        const { data: perfil } = await supabase
+            .from('perfiles')
+            .select('*')
+            .eq('id', producto.user_id)
+            .single();
+
+        res.status(200).send({
+            codigo: 0,
+            producto: { ...producto, perfiles: perfil }
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        res.status(200).send({
+            codigo: 1,
+            mensaje: error.message
+        });
+
+    }
+
+});
+
 objetoRouter.get('/ObtenerProductos', async (req, res, next) => {
 
     try {

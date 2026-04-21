@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, MessageCircle, ShoppingCart, Star, ShieldCheck, PackageCheck, ClipboardList, X, CreditCard, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
@@ -30,14 +30,66 @@ const sectionBaseClass =
 
 const ProductDetail = () => {
   const { id } = useParams();
-  const product = getProductById(id);
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [session] = useState(getSession());
 
   const [modalAbierto, setModalAbierto] = useState(false);
   const [estadoPago, setEstadoPago] = useState('idle');
   const [mensajePago, setMensajePago] = useState('');
 
+  useEffect(() => {
+    const cargarDetalle = async () => {
+      setLoading(true);
+      try {
+        // 1. Intentar buscar en locales (por si es un ID numérico de demo)
+        const local = getProductById(id);
+        
+        if (local) {
+          setProduct(local);
+          setLoading(false);
+          return;
+        }
+
+        // 2. Si no es local, buscar en el backend (UUID)
+        const response = await fetch(`http://localhost:3000/api/productos/ObtenerProductoPorId/${id}`);
+        const data = await response.json();
+
+        if (data.codigo === 0 && data.producto) {
+          const p = data.producto;
+          const v = p.perfiles;
+          
+          setProduct({
+            id: p.id,
+            user_id: p.user_id,
+            title: p.titulo,
+            description: p.descripcion,
+            price: p.precio,
+            image: p.imagen || `https://picsum.photos/seed/${p.id}/1200/900`,
+            category: p.categoria || p.tipo || 'General',
+            rating: 5.0,
+            reviews: 0,
+            badges: ['Verificado'],
+            characteristics: ['Verificado por ScriptBay', 'Código original', 'Soporte del autor'],
+            includes: ['Código fuente', 'Documentación básica'],
+            requirements: ['Entorno Node.js', 'Conexión a internet'],
+            vendor: { 
+              name: v?.nombre || 'Usuario Market', 
+              avatar: v?.nombre ? v.nombre.substring(0,2).toUpperCase() : 'UM' 
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Error cargando producto:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    cargarDetalle();
+  }, [id]);
+
   const handleAbrirModal = () => {
-    const session = getSession();
     if (!session) {
       setEstadoPago('error');
       setMensajePago('Debes iniciar sesión para comprar');
@@ -66,6 +118,16 @@ const ProductDetail = () => {
       setMensajePago(resultado.mensaje);
     }
   };
+
+  const esPropietario = session && product && session.datosCliente?.id === product.user_id;
+
+  if (loading) {
+    return (
+      <div className="pt-28 flex justify-center items-center min-h-screen">
+        <Loader className="animate-spin text-primary w-10 h-10" />
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -112,7 +174,8 @@ const ProductDetail = () => {
     top: isService ? '58%' : '-10%',
   };
   const trustBadges = ['🔥 Top ventas', '⚡ Entrega inmediata', '✔ Verificado'];
-  const salesCount = product.reviews * 6 + product.id * 5;
+  const idForCalculation = Number(product.id) || 0;
+  const salesCount = (product.reviews || 0) * 6 + idForCalculation * 5;
 
   return (
     <section className="pt-28 pb-20 px-6 max-w-7xl mx-auto min-h-screen">
@@ -173,14 +236,20 @@ const ProductDetail = () => {
                   <motion.p layoutId={`product-price-${product.id}`} className="text-base-primary text-5xl font-black tracking-tight">{product.price}€</motion.p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <button onClick={handleAbrirModal} className="group relative isolate inline-flex items-center gap-2 overflow-hidden rounded-2xl border border-violet-300 dark:border-white/25 bg-linear-to-r from-violet-500 via-violet-600 to-primary dark:from-white/18 dark:via-violet-400/18 dark:to-primary/28 px-6 py-3 font-bold text-white backdrop-blur-md shadow-[0_8px_20px_-8px_rgba(168,85,247,0.5)] dark:shadow-[0_12px_28px_-14px_rgba(168,85,247,0.45)] transition-all duration-300 hover:scale-[1.04] hover:shadow-[0_12px_28px_-10px_rgba(168,85,247,0.55)] dark:hover:border-violet-300/45 dark:hover:shadow-[0_20px_40px_-18px_rgba(168,85,247,0.62),0_0_16px_rgba(239,68,68,0.35)] active:scale-95">
-                    <span className="pointer-events-none absolute -inset-1 rounded-2xl opacity-45 blur-md transition-opacity duration-500 group-hover:opacity-80" style={auraStyle}></span>
-                    <span className="pointer-events-none absolute inset-y-0 -left-[28%] w-[38%] -skew-x-12 bg-linear-to-r from-transparent via-white/60 to-transparent transition-all duration-700 group-hover:left-[118%]"></span>
-                    <span className="pointer-events-none absolute inset-0 bg-linear-to-b from-white/12 to-transparent opacity-90"></span>
-                    <span className="relative inline-flex items-center gap-2">
-                      <ShoppingCart className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" /> Comprar
-                    </span>
-                  </button>
+                  {!esPropietario ? (
+                    <button onClick={handleAbrirModal} className="group relative isolate inline-flex items-center gap-2 overflow-hidden rounded-2xl border border-violet-300 dark:border-white/25 bg-linear-to-r from-violet-500 via-violet-600 to-primary dark:from-white/18 dark:via-violet-400/18 dark:to-primary/28 px-6 py-3 font-bold text-white backdrop-blur-md shadow-[0_8px_20px_-8px_rgba(168,85,247,0.5)] dark:shadow-[0_12px_28px_-14px_rgba(168,85,247,0.45)] transition-all duration-300 hover:scale-[1.04] hover:shadow-[0_12px_28px_-10px_rgba(168,85,247,0.55)] dark:hover:border-violet-300/45 dark:hover:shadow-[0_20px_40px_-18px_rgba(168,85,247,0.62),0_0_16px_rgba(239,68,68,0.35)] active:scale-95">
+                      <span className="pointer-events-none absolute -inset-1 rounded-2xl opacity-45 blur-md transition-opacity duration-500 group-hover:opacity-80" style={auraStyle}></span>
+                      <span className="pointer-events-none absolute inset-y-0 -left-[28%] w-[38%] -skew-x-12 bg-linear-to-r from-transparent via-white/60 to-transparent transition-all duration-700 group-hover:left-[118%]"></span>
+                      <span className="pointer-events-none absolute inset-0 bg-linear-to-b from-white/12 to-transparent opacity-90"></span>
+                      <span className="relative inline-flex items-center gap-2">
+                        <ShoppingCart className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" /> Comprar
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 px-4 py-2 rounded-xl text-xs font-semibold text-dimmed">
+                      Este es tu producto
+                    </div>
+                  )}
                   <p className="text-[11px] font-medium tracking-wide text-faint">Pago seguro • Acceso inmediato • Soporte incluido</p>
                 </div>
               </div>
@@ -200,11 +269,13 @@ const ProductDetail = () => {
                     <p className="text-sm text-dimmed">Vendedor verificado</p>
                   </div>
                 </div>
-                <button className={`btn-secondary hover:scale-[1.03] ${
-                  isService ? 'hover:border-blue-400/35 hover:bg-blue-500/10' : 'hover:border-violet-400/35 hover:bg-violet-500/10'
-                }`}>
-                  <MessageCircle className="h-4 w-4" /> Contactar
-                </button>
+                {!esPropietario && (
+                  <button className={`btn-secondary hover:scale-[1.03] ${
+                    isService ? 'hover:border-blue-400/35 hover:bg-blue-500/10' : 'hover:border-violet-400/35 hover:bg-violet-500/10'
+                  }`}>
+                    <MessageCircle className="h-4 w-4" /> Contactar
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>

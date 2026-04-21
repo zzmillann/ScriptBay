@@ -100,7 +100,8 @@ const Home = () => {
                 const response = await fetch('http://localhost:3000/api/productos/ObtenerProductos');
                 const data = await response.json();
                 if (data.codigo === 0) {
-                    setProductos(data.productos);
+                    // Combinamos los productos de la base de datos con los locales para que nunca se vea vacío
+                    setProductos([...data.productos, ...localProducts]);
                     setCargaFallback(false);
                     return;
                 }
