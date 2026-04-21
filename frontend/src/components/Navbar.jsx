@@ -61,13 +61,13 @@ const Navbar = () => {
                     {session ? (
                         <>
                             <span className="hidden md:block text-sm text-subtle">{session?.datosCliente?.email || 'Sesión activa'}</span>
-                            <button onClick={handleLogout} className="hidden md:block text-sm font-bold text-base-primary hover:text-primary transition-colors">
+                            <button onClick={handleLogout} className="hidden md:block text-sm link-primary">
                                 Cerrar Sesión
                             </button>
                         </>
                     ) : (
                         <>
-                            <Link to="/login" className="hidden md:block text-sm font-bold text-base-primary hover:text-primary transition-colors">
+                            <Link to="/login" className="hidden md:block text-sm link-primary">
                                 Iniciar Sesión
                             </Link>
                             <Link to="/register" className="hidden md:block btn-primary text-sm py-2 px-4 shadow-none font-bold">
@@ -81,16 +81,16 @@ const Navbar = () => {
                     >
                         Publicar producto
                     </Link>
-                    <Link to="/cart" className="p-2 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl transition-colors relative">
+                    <Link to="/cart" className="icon-control relative">
                         <ShoppingCart className="w-5 h-5 text-faint" />
                         <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
                     </Link>
-                    <Link to="/profile" className="p-2 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl transition-colors">
+                    <Link to="/profile" className="icon-control">
                         <User className="w-5 h-5 text-faint" />
                     </Link>
                     <ThemeToggle />
                     <button
-                        className="md:hidden p-2 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl transition-colors text-base-primary"
+                        className="md:hidden icon-control text-base-primary"
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
                     >
                         {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -108,16 +108,16 @@ const Navbar = () => {
                         />
                     </div>
                     <div className="flex flex-col gap-2">
-                        <Link to="/" className="p-3 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl transition-colors text-base-primary">Mercado</Link>
-                        <Link to="/create-product" className="p-3 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl transition-colors text-base-primary">Publicar</Link>
-                        <Link to="/profile" className="p-3 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl transition-colors text-base-primary">Perfil</Link>
-                        <Link to="/settings" className="p-3 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl transition-colors text-base-primary">Configuración</Link>
+                        <Link to="/" className="menu-item">Mercado</Link>
+                        <Link to="/create-product" className="menu-item">Publicar</Link>
+                        <Link to="/profile" className="menu-item">Perfil</Link>
+                        <Link to="/settings" className="menu-item">Configuración</Link>
                         {session ? (
-                            <button onClick={handleLogout} className="p-3 text-left hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl transition-colors text-base-primary">Cerrar sesión</button>
+                            <button onClick={handleLogout} className="menu-item text-left">Cerrar sesión</button>
                         ) : (
                             <>
-                                <Link to="/login" className="p-3 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl transition-colors text-base-primary">Iniciar sesión</Link>
-                                <Link to="/register" className="p-3 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl transition-colors text-base-primary">Registrarse</Link>
+                                <Link to="/login" className="menu-item">Iniciar sesión</Link>
+                                <Link to="/register" className="menu-item">Registrarse</Link>
                             </>
                         )}
                     </div>
