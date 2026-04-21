@@ -10,7 +10,7 @@ export default function ThemeToggle() {
     <button
       onClick={toggleTheme}
       aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-      className="relative w-9 h-9 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors duration-200"
+      className="relative w-9 h-9 flex items-center justify-center icon-control"
     >
       <AnimatePresence mode="wait" initial={false}>
         {isDark ? (

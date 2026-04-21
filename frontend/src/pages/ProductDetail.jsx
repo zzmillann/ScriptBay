@@ -181,7 +181,7 @@ const ProductDetail = () => {
                       <ShoppingCart className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" /> Comprar
                     </span>
                   </button>
-                  <p className="text-[11px] font-medium tracking-wide text-white/55">Pago seguro • Acceso inmediato • Soporte incluido</p>
+                  <p className="text-[11px] font-medium tracking-wide text-faint">Pago seguro • Acceso inmediato • Soporte incluido</p>
                 </div>
               </div>
             </div>
@@ -190,13 +190,13 @@ const ProductDetail = () => {
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-subtle">Vendedor</h2>
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className={`grid h-14 w-14 place-content-center rounded-2xl border bg-white/10 text-base font-black text-white shadow-[0_12px_26px_-16px_rgba(168,85,247,0.75)] ${
+                  <div className={`grid h-14 w-14 place-content-center rounded-2xl border bg-zinc-100 dark:bg-white/10 text-base font-black text-zinc-800 dark:text-white shadow-[0_12px_26px_-16px_rgba(168,85,247,0.75)] ${
                     isService ? 'border-blue-400/35' : 'border-violet-400/35'
                   }`}>
                     {product.vendor.avatar}
                   </div>
                   <div>
-                    <p className="font-semibold">{product.vendor.name}</p>
+                    <p className="font-semibold text-base-primary">{product.vendor.name}</p>
                     <p className="text-sm text-dimmed">Vendedor verificado</p>
                   </div>
                 </div>
@@ -212,7 +212,7 @@ const ProductDetail = () => {
 
         <motion.div variants={itemVariants} className="grid gap-6 md:grid-cols-3">
           <div className={sectionClass}>
-            <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold"><span className="text-lg">⚙️</span><ShieldCheck className="h-4 w-4 text-violet-300" /> Características</h3>
+            <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><span className="text-lg">⚙️</span><ShieldCheck className="h-4 w-4 text-violet-500 dark:text-violet-300" /> Características</h3>
             <ul className="space-y-2.5 text-sm text-dimmed">
               {product.characteristics.map((item) => (
                 <li key={item}>• {item}</li>
@@ -220,7 +220,7 @@ const ProductDetail = () => {
             </ul>
           </div>
           <div className={sectionClass}>
-            <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold"><span className="text-lg">📦</span><PackageCheck className="h-4 w-4 text-red-300" /> Incluye</h3>
+            <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><span className="text-lg">📦</span><PackageCheck className="h-4 w-4 text-red-500 dark:text-red-300" /> Incluye</h3>
             <ul className="space-y-2.5 text-sm text-dimmed">
               {product.includes.map((item) => (
                 <li key={item}>• {item}</li>
@@ -228,7 +228,7 @@ const ProductDetail = () => {
             </ul>
           </div>
           <div className={sectionClass}>
-            <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold"><span className="text-lg">📄</span><ClipboardList className="h-4 w-4 text-white/80" /> Requisitos</h3>
+            <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><span className="text-lg">📄</span><ClipboardList className="h-4 w-4 text-zinc-500 dark:text-white/80" /> Requisitos</h3>
             <ul className="space-y-2.5 text-sm text-dimmed">
               {product.requirements.map((item) => (
                 <li key={item}>• {item}</li>
@@ -240,7 +240,7 @@ const ProductDetail = () => {
         {relatedProducts.length > 0 && (
           <motion.div variants={itemVariants}>
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Productos relacionados</h2>
+              <h2 className="text-2xl font-bold text-base-primary">Productos relacionados</h2>
               <span className="text-sm text-dimmed">Misma categoría: {product.category}</span>
             </div>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -260,12 +260,12 @@ const ProductDetail = () => {
             transition={{ duration: 0.28, ease: 'easeOut' }}
             className="relative w-full max-w-md rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0e0e12] p-7 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.18)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7)]"
           >
-            <button onClick={handleCerrarModal} className="absolute right-5 top-5 rounded-lg p-1 text-white/40 transition hover:text-white/80">
+            <button onClick={handleCerrarModal} className="absolute right-5 top-5 rounded-lg p-1 text-zinc-400 dark:text-white/40 transition hover:text-zinc-700 dark:hover:text-white/80">
               <X className="h-5 w-5" />
             </button>
 
             <div className="mb-5 flex items-center gap-2">
-              <span className="rounded-full border border-yellow-400/40 bg-yellow-400/10 px-3 py-1 text-xs font-semibold text-yellow-300">
+              <span className="rounded-full border border-yellow-300 dark:border-yellow-400/40 bg-yellow-100 dark:bg-yellow-400/10 px-3 py-1 text-xs font-semibold text-yellow-700 dark:text-yellow-300">
                 🧪 Modo Desarrollador — Pago de Prueba
               </span>
             </div>
@@ -287,14 +287,14 @@ const ProductDetail = () => {
             {estadoPago === 'idle' && (
               <button
                 onClick={handleConfirmarPago}
-                className="w-full rounded-2xl border border-violet-400/30 bg-violet-600/20 py-3 font-bold text-white transition hover:bg-violet-600/35 hover:scale-[1.02] active:scale-95"
+                className="w-full rounded-2xl border border-violet-400/35 bg-violet-100 dark:bg-violet-600/20 py-3 font-bold text-violet-700 dark:text-white transition hover:bg-violet-200 dark:hover:bg-violet-600/35 hover:scale-[1.02] active:scale-95"
               >
                 Confirmar Pago
               </button>
             )}
 
             {estadoPago === 'cargando' && (
-              <div className="flex items-center justify-center gap-3 py-3 text-white/70">
+              <div className="flex items-center justify-center gap-3 py-3 text-subtle">
                 <Loader className="h-5 w-5 animate-spin" /> Procesando pago...
               </div>
             )}
@@ -302,9 +302,9 @@ const ProductDetail = () => {
             {estadoPago === 'ok' && (
               <div className="flex flex-col items-center gap-3 py-2 text-center">
                 <CheckCircle className="h-10 w-10 text-green-400" />
-                <p className="font-semibold text-green-300">¡Pago realizado correctamente!</p>
-                <p className="text-sm text-white/50">{mensajePago}</p>
-                <button onClick={handleCerrarModal} className="mt-2 rounded-xl border border-white/15 bg-white/5 px-5 py-2 text-sm font-semibold transition hover:bg-white/10">
+                <p className="font-semibold text-green-700 dark:text-green-300">¡Pago realizado correctamente!</p>
+                <p className="text-sm text-dimmed">{mensajePago}</p>
+                <button onClick={handleCerrarModal} className="btn-secondary mt-2 px-5 py-2 text-sm">
                   Cerrar
                 </button>
               </div>
@@ -313,9 +313,9 @@ const ProductDetail = () => {
             {estadoPago === 'error' && (
               <div className="flex flex-col items-center gap-3 py-2 text-center">
                 <AlertCircle className="h-10 w-10 text-red-400" />
-                <p className="font-semibold text-red-300">Error al procesar el pago</p>
-                <p className="text-sm text-white/50">{mensajePago}</p>
-                <button onClick={handleCerrarModal} className="mt-2 rounded-xl border border-white/15 bg-white/5 px-5 py-2 text-sm font-semibold transition hover:bg-white/10">
+                <p className="font-semibold text-red-700 dark:text-red-300">Error al procesar el pago</p>
+                <p className="text-sm text-dimmed">{mensajePago}</p>
+                <button onClick={handleCerrarModal} className="btn-secondary mt-2 px-5 py-2 text-sm">
                   Cerrar
                 </button>
               </div>
