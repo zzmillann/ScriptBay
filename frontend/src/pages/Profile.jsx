@@ -252,7 +252,7 @@ const Profile = () => {
             <div className="glass-card overflow-hidden border-none">
                 <div className="relative">
                     <div
-                        className={`relative h-40 sm:h-48 overflow-hidden border-b border-white/10 bg-linear-to-r from-primary/30 via-primary/20 to-accent/25 transition-all duration-300 ${isDraggingBanner ? 'brightness-75 outline outline-4 outline-primary -outline-offset-4' : ''}`}
+                        className={`relative h-40 sm:h-48 overflow-hidden border-b border-zinc-200 dark:border-white/10 bg-linear-to-r from-primary/30 via-primary/20 to-accent/25 transition-all duration-300 ${isDraggingBanner ? 'brightness-75 outline outline-4 outline-primary -outline-offset-4' : ''}`}
                         onDragEnter={(event) => handleDragOver(event, 'banner')}
                         onDragOver={(event) => handleDragOver(event, 'banner')}
                         onDragLeave={(event) => handleDragLeave(event, 'banner')}
@@ -279,13 +279,13 @@ const Profile = () => {
                         <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-darker/70" />
 
                         <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-2">
-                            <label className="glass-card border-none px-3 py-2 text-xs font-bold cursor-pointer hover:bg-white/10 transition-colors flex items-center gap-2">
+                            <label className="btn-secondary px-3 py-2 text-xs font-bold cursor-pointer">
                                 <Upload className="w-4 h-4" /> Banner
                                 <input type="file" accept="image/*" className="hidden" onChange={(event) => onSelectFile(event, 'banner')} />
                             </label>
                         </div>
 
-                        <p className="absolute top-3 left-3 sm:top-4 sm:left-4 right-4 text-[11px] sm:text-xs text-white/70 flex items-center gap-2">
+                        <p className="absolute top-3 left-3 sm:top-4 sm:left-4 right-4 text-[11px] sm:text-xs text-subtle flex items-center gap-2">
                             <Move className="w-3 h-3" />
                             Arrastra una imagen o subela y luego muevela para encuadrar.
                         </p>
@@ -322,11 +322,11 @@ const Profile = () => {
 
                                 <div className="pb-2">
                                     <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">{form.nombre || 'Tu nombre'}</h1>
-                                    <p className="text-white/60 text-sm sm:text-base mt-1">{form.titular || 'Titular profesional'}</p>
-                                    <div className="text-white/45 text-xs sm:text-sm mt-1 flex items-center gap-1.5">
+                                    <p className="text-dimmed text-sm sm:text-base mt-1">{form.titular || 'Titular profesional'}</p>
+                                    <div className="text-faint text-xs sm:text-sm mt-1 flex items-center gap-1.5">
                                         <MapPin className="w-3.5 h-3.5" />
                                         <input
-                                            className="bg-transparent border-b border-white/20 focus:border-primary/60 outline-hidden text-white/80 placeholder:text-white/40 px-0.5 py-0.5 w-full max-w-xs"
+                                            className="bg-transparent border-b border-zinc-300 dark:border-white/20 focus:border-primary/60 outline-hidden text-zinc-700 dark:text-white/80 placeholder:text-zinc-400 dark:placeholder:text-white/40 px-0.5 py-0.5 w-full max-w-xs"
                                             value={form.ubicacion}
                                             onChange={(event) => setForm((prev) => ({ ...prev, ubicacion: event.target.value }))}
                                             placeholder="Sin ubicacion"
@@ -351,7 +351,7 @@ const Profile = () => {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs text-white/50 block mb-2">Nombre de usuario</label>
+                                    <label className="text-xs text-dimmed block mb-2">Nombre de usuario</label>
                                     <input
                                         className="input-field"
                                         value={form.nombre}
@@ -361,7 +361,7 @@ const Profile = () => {
                                 </div>
 
                                 <div>
-                                    <label className="text-xs text-white/50 block mb-2">Titular profesional</label>
+                                    <label className="text-xs text-dimmed block mb-2">Titular profesional</label>
                                     <input
                                         className="input-field"
                                         value={form.titular}
@@ -371,7 +371,7 @@ const Profile = () => {
                                 </div>
 
                                 <div className="sm:col-span-2">
-                                    <label className="text-xs text-white/50 block mb-2">Ubicacion</label>
+                                    <label className="text-xs text-dimmed block mb-2">Ubicacion</label>
                                     <input
                                         className="input-field"
                                         value={form.ubicacion}
@@ -404,16 +404,16 @@ const Profile = () => {
 
                             <div className="space-y-2">
                                 {form.educacion.length === 0 && (
-                                    <p className="text-sm text-white/40">Aun no agregaste items de educacion.</p>
+                                    <p className="text-sm text-faint">Aun no agregaste items de educacion.</p>
                                 )}
 
                                 {form.educacion.map((item, index) => (
-                                    <div key={`${item}-${index}`} className="bg-white/5 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
-                                        <p className="text-sm text-white/90">{item}</p>
+                                    <div key={`${item}-${index}`} className="bg-zinc-100 dark:bg-white/5 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                                        <p className="text-sm text-base-primary">{item}</p>
                                         <button
                                             type="button"
                                             onClick={() => removeEducacion(index)}
-                                            className="text-white/60 hover:text-primary transition-colors"
+                                            className="text-dimmed hover:text-primary transition-colors"
                                             aria-label={`Eliminar educacion ${index + 1}`}
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -429,9 +429,9 @@ const Profile = () => {
                             <h3 className="text-lg font-bold">Enlaces opcionales</h3>
 
                             <div>
-                                <label className="text-xs text-white/50 block mb-2">Repositorio GitHub (opcional)</label>
+                                <label className="text-xs text-dimmed block mb-2">Repositorio GitHub (opcional)</label>
                                 <div className="relative">
-                                    <Github className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                                    <Github className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
                                     <input
                                         className="input-field pl-10"
                                         value={form.github}
@@ -442,9 +442,9 @@ const Profile = () => {
                             </div>
 
                             <div>
-                                <label className="text-xs text-white/50 block mb-2">Perfil LinkedIn (opcional)</label>
+                                <label className="text-xs text-dimmed block mb-2">Perfil LinkedIn (opcional)</label>
                                 <div className="relative">
-                                    <Linkedin className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                                    <Linkedin className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
                                     <input
                                         className="input-field pl-10"
                                         value={form.linkedin}
@@ -457,7 +457,7 @@ const Profile = () => {
 
                         <div className="glass-card border-none p-6">
                             <h3 className="text-lg font-bold mb-3">Vista rapida</h3>
-                            <div className="text-sm space-y-2 text-white/70">
+                            <div className="text-sm space-y-2 text-subtle">
                                 <p className="flex items-center gap-2"><User className="w-4 h-4 text-primary" /> {form.nombre || 'Sin nombre'}</p>
                                 <p>{form.educacion.length} item(s) de educacion</p>
                                 <p>GitHub: {form.github ? 'configurado' : 'no configurado'}</p>
@@ -483,9 +483,10 @@ const Profile = () => {
             </div>
 
             <div className="mt-10 px-6 sm:px-10 pb-10">
-                <h2 className="text-2xl font-bold mb-6">Mis publicaciones</h2>
+                <h2 className="text-2xl font-bold mb-1 text-base-primary">Mis productos publicados</h2>
+                <p className="text-sm text-subtle mb-6">Aquí aparecen los productos que tú has creado para vender en el marketplace.</p>
                 {misProductos.length === 0 ? (
-                    <p className="text-white/40 text-sm">Todavía no tienes publicaciones.</p>
+                    <p className="text-faint text-sm">Todavía no has publicado productos.</p>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {misProductos.map((product) => (

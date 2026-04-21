@@ -16,6 +16,14 @@ const PageShell = () => {
 
   return (
     <div className="relative min-h-screen flex flex-col overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 50% 0%, rgba(255, 26, 26, 0.05) 0%, transparent 50%), radial-gradient(circle at 0% 100%, rgba(255, 26, 26, 0.02) 0%, transparent 40%)',
+        }}
+      />
       <ParticlesBackground />
       <div className="relative z-10 flex flex-col flex-grow">
         <Navbar />
@@ -42,18 +50,18 @@ const PageShell = () => {
           </LayoutGroup>
         </main>
 
-        <footer className="py-12 px-6 border-t border-glass-border bg-darker/50 backdrop-blur-sm mt-auto">
+        <footer className="py-12 px-6 border-t border-zinc-200 dark:border-glass-border bg-zinc-50 dark:bg-darker/50 backdrop-blur-sm mt-auto">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="text-xl font-bold tracking-tight">
               Script<span className="gradient-text">Bay</span>
-              <p className="text-sm font-normal text-white/30 mt-2">El futuro del comercio tecnológico.</p>
+              <p className="text-sm font-normal text-faint mt-2">El futuro del comercio tecnológico.</p>
             </div>
-            <div className="flex gap-8 text-sm text-white/40 font-bold">
-              <a href="#" className="hover:text-primary transition-colors">Términos de Servicio</a>
-              <a href="#" className="hover:text-primary transition-colors">Privacidad</a>
-              <a href="#" className="hover:text-primary transition-colors">Contacto</a>
+            <div className="flex gap-8 text-sm text-dimmed font-bold">
+              <a href="#" className="link-primary">Términos de Servicio</a>
+              <a href="#" className="link-primary">Privacidad</a>
+              <a href="#" className="link-primary">Contacto</a>
             </div>
-            <p className="text-xs text-white/20">© 2026 ScriptBay Inc. Todos los derechos reservados.</p>
+            <p className="text-xs text-faint">© 2026 ScriptBay Inc. Todos los derechos reservados.</p>
           </div>
         </footer>
       </div>

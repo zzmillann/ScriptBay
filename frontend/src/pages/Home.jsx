@@ -51,7 +51,7 @@ const Home = () => {
     const titleX = useTransform(smoothX, [-400, 400], [-30, 30]);
     const titleY = useTransform(smoothY, [-400, 400], [-15, 15]);
 
-    const [productos, setProductos] = useState([]);
+    const [productos, setProductos] = useState(localProducts);
     const [cargaFallback, setCargaFallback] = useState(false);
     const [tagSeleccionado, setTagSeleccionado] = useState('Todos');
     const [mostrarPanelFiltros, setMostrarPanelFiltros] = useState(false);
@@ -82,6 +82,17 @@ const Home = () => {
 
     const totalPaginas = Math.max(1, Math.ceil(productosFiltrados.length / PRODUCTOS_POR_PAGINA));
     const productosPagina = productosFiltrados.slice((paginaActual - 1) * PRODUCTOS_POR_PAGINA, paginaActual * PRODUCTOS_POR_PAGINA);
+    const paginasVisibles = useMemo(() => {
+        const maxVisibles = 7;
+        if (totalPaginas <= maxVisibles) {
+            return Array.from({ length: totalPaginas }, (_, i) => i + 1);
+        }
+
+        const start = Math.max(1, paginaActual - 3);
+        const end = Math.min(totalPaginas, start + maxVisibles - 1);
+        const adjustedStart = Math.max(1, end - maxVisibles + 1);
+        return Array.from({ length: end - adjustedStart + 1 }, (_, i) => adjustedStart + i);
+    }, [paginaActual, totalPaginas]);
 
     useEffect(() => {
         const cargarProductos = async () => {
@@ -133,46 +144,70 @@ const Home = () => {
 
     return (
         <div className="pt-28 pb-20 px-6 max-w-7xl mx-auto min-h-screen">
-            <div className="flex flex-col md:flex-row gap-4 mb-12 items-center justify-between">
-                <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full md:w-auto scrollbar-hide">
+            <section
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+                className="glass-card p-6 sm:p-8 mb-8"
+            >
+                <div className="flex flex-col lg:flex-row gap-6 lg:items-end lg:justify-between">
+                    <div>
+                        <motion.h1
+                            style={{ x: titleX, y: titleY }}
+                            className="text-3xl sm:text-4xl font-bold leading-tight text-base-primary"
+                        >
+                            Marketplace para scripts y servicios digitales
+                        </motion.h1>
+                        <p className="mt-3 text-subtle max-w-2xl">
+                            Descubre recursos listos para producción con una experiencia visual consistente en todos los módulos.
+                        </p>
+                    </div>
+                    <div className="w-full lg:w-auto">
+                        <button
+                            onClick={() => setMostrarPanelFiltros((prev) => !prev)}
+                            className="btn-secondary w-full lg:w-auto px-5"
+                        >
+                            <SlidersHorizontal className="w-4 h-4" />
+                            Filtrar y ordenar
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <div className="flex flex-wrap gap-2 mb-8">
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full scrollbar-hide">
                     {tags.map((tag) => (
                         <button
                             key={tag}
                             onClick={() => setTagSeleccionado(tag)}
-                            className={`px-5 py-2 border-none transition-all text-sm whitespace-nowrap font-bold ${
-                                tagSeleccionado === tag ? 'bg-primary text-darker' : 'glass-card hover:bg-primary/20'
+                            className={`px-4 py-2 rounded-xl border text-sm whitespace-nowrap font-semibold transition-all duration-200 ${
+                                tagSeleccionado === tag
+                                    ? 'bg-primary text-white border-primary shadow-[0_10px_24px_-14px_rgba(255,26,26,0.85)]'
+                                    : 'bg-zinc-100 dark:bg-white/5 border-zinc-200 dark:border-white/10 text-base-primary hover:border-primary/30 hover:text-primary'
                             }`}
                         >
                             {tag}
                         </button>
                     ))}
                 </div>
-                <button
-                    onClick={() => setMostrarPanelFiltros((prev) => !prev)}
-                    className="flex items-center gap-2 px-5 py-2 glass-card hover:bg-white/5 transition-all text-sm w-full md:w-auto justify-center font-bold"
-                >
-                    <SlidersHorizontal className="w-4 h-4" />
-                    Filtrar y Ordenar
-                </button>
             </div>
 
             {mostrarPanelFiltros && (
                 <div className="mb-8 glass-card p-4 md:p-5 flex flex-col md:flex-row gap-4 items-start md:items-end justify-between">
                     <div className="w-full md:w-auto">
-                        <label className="block text-xs text-white/60 mb-2 font-semibold">Ordenar por</label>
+                        <label className="block text-xs text-dimmed mb-2 font-semibold">Ordenar por</label>
                         <select
                             value={ordenSeleccionado}
                             onChange={(e) => setOrdenSeleccionado(e.target.value)}
-                            className="w-full md:w-64 rounded-xl border border-white/15 bg-black/40 px-4 py-2.5 text-sm text-white outline-none"
+                            className="w-full md:w-64 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-black/40 px-4 py-2.5 text-sm text-base-primary outline-none shadow-sm dark:shadow-none transition-all duration-200 focus:border-primary/45 focus:shadow-[0_0_0_1px_rgba(255,26,26,0.2)]"
                         >
-                            <option value="mas-recientes" className="bg-dark">Más recientes</option>
-                            <option value="precio-asc" className="bg-dark">Precio: menor a mayor</option>
-                            <option value="precio-desc" className="bg-dark">Precio: mayor a menor</option>
-                            <option value="rating-desc" className="bg-dark">Mejor valorados</option>
+                            <option value="mas-recientes">Más recientes</option>
+                            <option value="precio-asc">Precio: menor a mayor</option>
+                            <option value="precio-desc">Precio: mayor a menor</option>
+                            <option value="rating-desc">Mejor valorados</option>
                         </select>
                     </div>
 
-                    <p className="text-xs md:text-sm text-white/60 font-semibold">
+                    <p className="text-xs md:text-sm text-dimmed font-semibold">
                         Mostrando {productosFiltrados.length} resultado(s) en {tagSeleccionado}
                     </p>
                 </div>
@@ -194,11 +229,11 @@ const Home = () => {
             </div>
 
             {productosFiltrados.length === 0 && (
-                <p className="mt-8 text-center text-white/60">No hay productos para ese filtro.</p>
+                <p className="mt-8 text-center text-dimmed">No hay productos para ese filtro.</p>
             )}
 
             {cargaFallback && (
-                <p className="mt-6 text-sm text-white/60">
+                <p className="mt-6 text-sm text-dimmed">
                     Mostrando catálogo local temporalmente porque el backend no respondió correctamente.
                 </p>
             )}
@@ -207,18 +242,20 @@ const Home = () => {
                 <button
                     onClick={HandlerClickAnterior}
                     disabled={paginaActual === 1}
-                    className="flex items-center gap-2 px-6 py-2.5 glass-card border-none font-bold text-sm hover:bg-primary/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="btn-secondary px-5 text-sm disabled:opacity-35 disabled:cursor-not-allowed"
                 >
                     <ChevronLeft className="w-4 h-4" /> Anterior
                 </button>
 
                 <div className="flex items-center gap-2">
-                    {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((num) => (
+                    {paginasVisibles.map((num) => (
                         <button
                             key={num}
                             onClick={() => setPaginaActual(num)}
-                            className={`w-10 h-10 rounded-xl font-bold text-sm transition-all ${
-                                paginaActual === num ? 'bg-primary text-darker' : 'glass-card border-none hover:bg-primary/20'
+                            className={`w-10 h-10 rounded-xl border font-semibold text-sm transition-all duration-200 ${
+                                paginaActual === num
+                                    ? 'bg-primary text-white border-primary shadow-[0_10px_22px_-14px_rgba(255,26,26,0.85)]'
+                                    : 'bg-zinc-100 dark:bg-white/5 border-zinc-200 dark:border-white/10 text-base-primary hover:border-primary/30 hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/50'
                             }`}
                         >
                             {num}
@@ -229,7 +266,7 @@ const Home = () => {
                 <button
                     onClick={HandlerClickSiguiente}
                     disabled={paginaActual === totalPaginas}
-                    className="flex items-center gap-2 px-6 py-2.5 glass-card border-none font-bold text-sm hover:bg-primary/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="btn-secondary px-5 text-sm disabled:opacity-35 disabled:cursor-not-allowed"
                 >
                     Siguiente <ChevronRight className="w-4 h-4" />
                 </button>

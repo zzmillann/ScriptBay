@@ -75,7 +75,7 @@ const ProductDetail = () => {
           <p className="mt-3 text-dimmed">No existe un producto con ese ID.</p>
           <Link
             to="/"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-white/15 bg-zinc-100 dark:bg-white/5 px-4 py-2 font-semibold transition hover:bg-zinc-200 dark:hover:bg-white/10 text-base-primary"
+            className="btn-secondary mt-6 px-4 py-2"
           >
             <ArrowLeft className="h-4 w-4" /> Volver al marketplace
           </Link>
@@ -123,7 +123,7 @@ const ProductDetail = () => {
         <motion.div variants={itemVariants}>
           <Link
             to="/"
-            className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-black/30 px-4 py-2 text-sm font-semibold text-base-primary transition-all hover:scale-[1.02] hover:bg-zinc-100 dark:hover:bg-white/10"
+            className="btn-secondary text-sm hover:scale-[1.02]"
           >
             <ArrowLeft className="h-4 w-4" /> Volver
           </Link>
@@ -200,7 +200,7 @@ const ProductDetail = () => {
                     <p className="text-sm text-dimmed">Vendedor verificado</p>
                   </div>
                 </div>
-                <button className={`inline-flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-white/15 bg-zinc-100 dark:bg-white/5 px-4 py-2 font-semibold text-base-primary transition-all hover:scale-[1.03] ${
+                <button className={`btn-secondary hover:scale-[1.03] ${
                   isService ? 'hover:border-blue-400/35 hover:bg-blue-500/10' : 'hover:border-violet-400/35 hover:bg-violet-500/10'
                 }`}>
                   <MessageCircle className="h-4 w-4" /> Contactar
@@ -260,7 +260,7 @@ const ProductDetail = () => {
             transition={{ duration: 0.28, ease: 'easeOut' }}
             className="relative w-full max-w-md rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0e0e12] p-7 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.18)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7)]"
           >
-            <button onClick={handleCerrarModal} className="absolute right-5 top-5 rounded-lg p-1 text-zinc-400 dark:text-white/40 transition hover:text-zinc-700 dark:hover:text-white/80">
+            <button onClick={handleCerrarModal} className="absolute right-5 top-5 rounded-lg p-1 text-zinc-400 dark:text-white/40 transition hover:text-zinc-700 dark:hover:text-white/80 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/50">
               <X className="h-5 w-5" />
             </button>
 
@@ -287,7 +287,7 @@ const ProductDetail = () => {
             {estadoPago === 'idle' && (
               <button
                 onClick={handleConfirmarPago}
-                className="w-full rounded-2xl border border-violet-400/35 bg-violet-100 dark:bg-violet-600/20 py-3 font-bold text-violet-700 dark:text-white transition hover:bg-violet-200 dark:hover:bg-violet-600/35 hover:scale-[1.02] active:scale-95"
+                className="w-full rounded-2xl border border-violet-400/35 bg-violet-100 dark:bg-violet-600/20 py-3 font-bold text-violet-700 dark:text-white transition hover:bg-violet-200 dark:hover:bg-violet-600/35 hover:scale-[1.02] active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/50"
               >
                 Confirmar Pago
               </button>
