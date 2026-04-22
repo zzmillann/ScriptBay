@@ -177,7 +177,12 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
 
         if (authError) throw authError;
 
+        console.log("=== INICIO DE PAGO ===");
+        console.log("Usuario comprador - ID:", user.id, "| Email:", user.email);
+
         const { titulo, precio } = req.body;
+
+        console.log("Producto a comprar:", titulo, "| Precio:", precio, "EUR");
 
         const { data: perfil } = await supabase
             .from('perfiles')
@@ -187,11 +192,17 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
 
         const nombreCliente = perfil?.nombre || user.email;
 
+        console.log("Nombre del cliente en Stripe:", nombreCliente);
+
         const customerIdStripe = await stripeService.Stage1_CreateCustomer(nombreCliente, user.email);
         if (!customerIdStripe) throw new Error('No se ha podido crear el CUSTOMER en Stripe');
 
+        console.log("Stage 1 completado - Customer Stripe ID:", customerIdStripe);
+
         const cardIdStripe = await stripeService.Stage2_CreateCardForCustomer(customerIdStripe);
         if (!cardIdStripe) throw new Error('No se ha podido crear la CARD en Stripe para el CUSTOMER');
+
+        console.log("Stage 2 completado - Card Stripe ID:", cardIdStripe);
 
         const paymentIntentId = await stripeService.Stage3_CreateChargeForCustomer(
             customerIdStripe,
@@ -200,6 +211,10 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
             `Compra en ScriptBay: ${titulo}`
         );
         if (!paymentIntentId) throw new Error('No se ha podido procesar el pago en Stripe');
+
+        console.log("Stage 3 completado - Payment Intent ID:", paymentIntentId);
+        console.log("=== PAGO COMPLETADO ===");
+        console.log("Resumen - Cliente:", user.email, "| Producto:", titulo, "| Importe:", precio, "EUR | PaymentIntent:", paymentIntentId);
 
         res.status(200).send({
             codigo: 0,

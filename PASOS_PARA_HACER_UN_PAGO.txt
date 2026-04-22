@@ -1,0 +1,121 @@
+============================================================
+  GUIA: COMO HACER UN PAGO EN SCRIPTBAY (MODO DESARROLLADOR)
+============================================================
+
+INFORMACION IMPORTANTE - STRIPE EN MODO TEST
+---------------------------------------------
+En modo desarrollador (test), Stripe NO cobra dinero real.
+Cualquier usuario registrado puede hacer un pago.
+No hace falta una tarjeta real: el sistema usa automaticamente
+el token de prueba "tok_visa" que simula una Visa valida.
+Es decir, NO hay restriccion de usuarios: cualquier cuenta
+registrada en la app puede completar el flujo de pago.
+
+
+REQUISITOS PREVIOS
+------------------
+1. Tener el backend arrancado:
+   - Ir a la carpeta: ScriptBay/backend/
+   - Ejecutar: npm run dev  (o node server.js)
+   - El servidor escucha en: http://localhost:3000
+
+2. Tener el frontend arrancado:
+   - Ir a la carpeta: ScriptBay/frontend/
+   - Ejecutar: npm run dev
+   - La app abre en: http://localhost:5173
+
+3. Tener configurada la variable de entorno STRIPE_API_KEY
+   en el archivo .env del backend con la clave secreta de TEST
+   (empieza por sk_test_...)
+
+
+PASOS PARA HACER UN PAGO
+-------------------------
+
+PASO 1 - Registrarse o iniciar sesion
+   - Abrir http://localhost:5173 en el navegador
+   - Hacer clic en "Iniciar sesion" o "Registrarse"
+   - Introducir email y contrasena
+   - Si es registro nuevo, confirmar el email (revisar bandeja)
+   - Una vez logueado, volver al marketplace (pantalla principal)
+
+PASO 2 - Buscar un producto con precio
+   - En la pantalla principal (Home) se listan los productos
+   - Hacer clic en cualquier producto que tenga un precio en euros
+   - Productos de tipo "Script" o "Servicio" suelen tener precio
+
+PASO 3 - Ir al detalle del producto
+   - Se abre la pagina de detalle del producto
+   - Se puede ver el titulo, descripcion, precio y vendedor
+   - Comprobar que el precio mostrado es correcto
+
+PASO 4 - Pulsar el boton de compra
+   - En el panel derecho (o inferior en movil) aparece el precio
+   - Hacer clic en el boton "Comprar" o "Pagar"
+   - Se abre un modal de confirmacion de pago
+
+PASO 5 - Confirmar el pago en el modal
+   - El modal muestra el resumen: producto y precio
+   - Hacer clic en "Confirmar pago"
+   - El sistema procesa el pago automaticamente (sin pedir tarjeta,
+     porque en modo test usa tok_visa internamente)
+   - Aparece el mensaje: "Pago procesado correctamente"
+
+PASO 6 - Verificar el pago en consola del backend
+   Con el backend corriendo en terminal, se veran estos logs:
+
+   === INICIO DE PAGO ===
+   Usuario comprador - ID: <uuid> | Email: usuario@ejemplo.com
+   Producto a comprar: <nombre producto> | Precio: <X> EUR
+   Nombre del cliente en Stripe: <nombre>
+   Datos del CUSTOMER creado en Stripe: { id: 'cus_...', ... }
+   Stage 1 completado - Customer Stripe ID: cus_...
+   Datos de la CARD creada en Stripe: { id: 'card_...', ... }
+   Stage 2 completado - Card Stripe ID: card_...
+   Datos del PAYMENT INTENT creado en Stripe: { id: 'pi_...', status: 'succeeded', ... }
+   Stage 3 completado - Payment Intent ID: pi_...
+   === PAGO COMPLETADO ===
+   Resumen - Cliente: usuario@ejemplo.com | Producto: <nombre> | Importe: <X> EUR | PaymentIntent: pi_...
+
+PASO 7 - Verificar el pago en consola del navegador (DevTools)
+   Abrir DevTools (F12) > pestaña Console:
+
+   [ScriptBay] Iniciando pago - Producto: <nombre> | Precio: <X> EUR
+   [ScriptBay] Pago realizado con exito - PaymentIntent: pi_...
+
+PASO 8 - Verificar el pago en el Dashboard de Stripe
+   - Abrir: https://dashboard.stripe.com/test/payments
+   - Debe aparecer el Payment Intent con estado "Succeeded"
+   - Se puede hacer clic para ver todos los detalles:
+     cliente creado, metodo de pago (Visa test), importe, etc.
+   - En https://dashboard.stripe.com/test/customers
+     se ven los clientes creados en cada pago
+
+
+FLUJO TECNICO RESUMIDO
+----------------------
+Frontend (ProductDetail.jsx)
+  -> handleConfirmarPago()
+     -> stripeClient.js: POST /api/productos/PagarProducto { titulo, precio }
+
+Backend (endpointProductos.js)
+  -> Verifica token JWT de Supabase (usuario autenticado)
+  -> stripeService.Stage1_CreateCustomer(nombre, email)
+     -> Crea Customer en Stripe con nombre y email del usuario
+  -> stripeService.Stage2_CreateCardForCustomer(customerId)
+     -> Asocia tarjeta de prueba "tok_visa" al Customer
+  -> stripeService.Stage3_CreateChargeForCustomer(customerId, cardId, precio, descripcion)
+     -> Crea un PaymentIntent y lo confirma directamente
+  -> Devuelve { codigo: 0, paymentIntentId }
+
+
+POSIBLES ERRORES Y SOLUCIONES
+------------------------------
+- "No autorizado": no hay sesion activa -> iniciar sesion primero
+- "No se ha podido crear el CUSTOMER": revisar STRIPE_API_KEY en .env
+- El backend no responde: comprobar que npm run dev esta corriendo
+- El pago se queda en "cargando": abrir DevTools y revisar la consola
+  para ver si hay error de red o de CORS
+
+
+============================================================

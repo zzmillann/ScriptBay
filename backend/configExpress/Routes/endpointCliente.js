@@ -69,6 +69,7 @@ objetoRouter.post('/Login', async (req, res, next) => {
             codigo: 0,
             mensaje: "Login correcto",
             accessToken: session.access_token, // 6º si todo ok, devolvemos el token de acceso y los datos del cliente
+            refreshToken: session.refresh_token,
             datosCliente: {
                 ...user, // 7º si todo ok, devolvemos los datos del cliente
                 ...perfil
@@ -108,6 +109,36 @@ objetoRouter.post('/Logout', async (req, res, next) => {
             codigo: 3,
             mensaje: error.message
         })
+
+    }
+});
+
+objetoRouter.post('/RefreshToken', async (req, res, next) => {
+    try {
+
+        const { refreshToken } = req.body;
+
+        if (!refreshToken) throw new Error('No se ha proporcionado refresh token');
+
+        const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+
+        if (error) throw error;
+
+        res.status(200).send({
+            codigo: 0,
+            mensaje: 'Token renovado correctamente',
+            accessToken: data.session.access_token,
+            refreshToken: data.session.refresh_token
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        res.status(200).send({
+            codigo: 1,
+            mensaje: error.message
+        });
 
     }
 });
