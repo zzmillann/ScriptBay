@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Github, Linkedin, MapPin, Move, Plus, Save, Trash2, Upload, User } from 'lucide-react';
-import { getSession, saveSession } from '../services/authClient.js';
+import { Link } from 'react-router-dom';
+import { getSession, refreshSession, saveSession } from '../services/authClient.js';
 import ProductCard from '../components/ProductCard.jsx';
+import { normalizeImageUrl } from '../utils/imageUrl.js';
 
 const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -33,6 +35,27 @@ const Profile = () => {
     const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
     const [misProductos, setMisProductos] = useState([]);
 
+    const getActiveSession = async () => (await refreshSession()) || getSession();
+
+    const cargarMisProductos = async () => {
+        const session = await getActiveSession();
+        if (!session?.accessToken) return;
+
+        try {
+            const response = await fetch('http://localhost:3000/api/productos/MisProductos', {
+                headers: {
+                    Authorization: `Bearer ${session.accessToken}`
+                }
+            });
+            const data = await response.json();
+            if (data.codigo === 0) {
+                setMisProductos(data.productos || []);
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    };
+
     useEffect(() => {
         const session = getSession();
         if (!session) return;
@@ -55,23 +78,40 @@ const Profile = () => {
             setBannerZoom(Number(d.banner_zoom) || 1);
         }
 
-        const cargarMisProductos = async () => {
-            try {
-                const response = await fetch('http://localhost:3000/api/productos/MisProductos', {
-                    headers: {
-                        Authorization: `Bearer ${session.accessToken}`
-                    }
-                });
-                const data = await response.json();
-                if (data.codigo === 0) {
-                    setMisProductos(data.productos);
-                }
-            } catch (error) {
-                console.log(error);
-            }
-        };
         cargarMisProductos();
     }, []);
+
+    const handleEliminarProducto = async (idProducto) => {
+        const session = await getActiveSession();
+        if (!session?.accessToken) {
+            setFeedback({ type: 'error', message: 'Debes iniciar sesión para eliminar productos.' });
+            return;
+        }
+
+        const confirmado = window.confirm('¿Seguro que quieres eliminar esta publicación? Esta acción no se puede deshacer.');
+        if (!confirmado) return;
+
+        try {
+            const response = await fetch('http://localhost:3000/api/productos/EliminarProducto', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session.accessToken}`
+                },
+                body: JSON.stringify({ id: idProducto })
+            });
+            const data = await response.json();
+
+            if (data.codigo !== 0) {
+                throw new Error(data.mensaje || 'No se pudo eliminar la publicación.');
+            }
+
+            setFeedback({ type: 'success', message: 'Publicación eliminada correctamente.' });
+            setMisProductos((prev) => prev.filter((item) => String(item.id) !== String(idProducto)));
+        } catch (error) {
+            setFeedback({ type: 'error', message: error.message || 'Error al eliminar publicación.' });
+        }
+    };
 
     useEffect(() => {
         const handleMouseMove = (event) => {
@@ -200,7 +240,7 @@ const Profile = () => {
     };
 
     const HandlerGuardarPerfil = async () => {
-        const session = getSession();
+        const session = await getActiveSession();
         if (!session) {
             setFeedback({ type: 'error', message: 'Debes iniciar sesión para guardar el perfil.' });
             return;
@@ -526,16 +566,32 @@ const Profile = () => {
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {misProductos.map((product) => (
-                            <ProductCard
-                                key={product.id}
-                                id={product.id}
-                                title={product.titulo}
-                                category={product.categoria || product.tipo}
-                                price={product.precio ?? 0}
-                                rating={0}
-                                reviews={0}
-                                image={product.imagen}
-                            />
+                            <div key={product.id} className="space-y-3">
+                                <ProductCard
+                                    id={product.id}
+                                    title={product.titulo}
+                                    category={product.categoria || product.tipo}
+                                    price={product.precio ?? 0}
+                                    rating={0}
+                                    reviews={0}
+                                    image={normalizeImageUrl(product.imagen)}
+                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Link
+                                        to={`/edit-product/${product.id}`}
+                                        className="btn-secondary text-xs sm:text-sm py-2 text-center"
+                                    >
+                                        Editar
+                                    </Link>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleEliminarProducto(product.id)}
+                                        className="btn-primary text-xs sm:text-sm py-2"
+                                    >
+                                        Eliminar
+                                    </button>
+                                </div>
+                            </div>
                         ))}
                     </div>
                 )}
