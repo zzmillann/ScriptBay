@@ -138,7 +138,7 @@ const Profile = () => {
         const file = event.dataTransfer.files?.[0];
 
         if (!file || !file.type.startsWith('image/')) {
-            setFeedback({ type: 'error', message: 'Solo se permiten imagenes para banner y foto de perfil.' });
+            setFeedback({ type: 'error', message: 'Solo se permiten imágenes para banner y foto de perfil.' });
             return;
         }
 
@@ -306,7 +306,7 @@ const Profile = () => {
                         {bannerUrl && (
                             <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-10 w-44 rounded-2xl bg-darker/65 backdrop-blur-md border border-white/10 px-3 py-2">
                                 <div className="flex items-center justify-between text-[11px] text-white/80 mb-1.5">
-                                    <span>Zoom banner</span>
+                                    <span>Zoom del banner</span>
                                     <span>{Math.round(bannerZoom * 100)}%</span>
                                 </div>
                                 <input
@@ -323,7 +323,7 @@ const Profile = () => {
 
                         <p className="absolute top-3 left-3 sm:top-4 sm:left-4 right-4 text-[11px] sm:text-xs text-subtle flex items-center gap-2">
                             <Move className="w-3 h-3" />
-                            Arrastra una imagen o subela y luego muevela para encuadrar.
+                            Arrastra una imagen o súbela y luego muévela para encuadrar.
                         </p>
                     </div>
 
@@ -365,7 +365,7 @@ const Profile = () => {
                                             className="bg-transparent border-b border-zinc-300 dark:border-white/20 focus:border-primary/60 outline-hidden text-zinc-700 dark:text-white/80 placeholder:text-zinc-400 dark:placeholder:text-white/40 px-0.5 py-0.5 w-full max-w-xs"
                                             value={form.ubicacion}
                                             onChange={(event) => setForm((prev) => ({ ...prev, ubicacion: event.target.value }))}
-                                            placeholder="Sin ubicacion"
+                                            placeholder="Sin ubicación"
                                         />
                                     </div>
                                 </div>
@@ -392,7 +392,7 @@ const Profile = () => {
                                         className="input-field"
                                         value={form.nombre}
                                         onChange={(event) => setForm((prev) => ({ ...prev, nombre: event.target.value }))}
-                                        placeholder="Ej: Juan Perez"
+                                        placeholder="Ej: Juan Pérez"
                                     />
                                 </div>
 
@@ -407,12 +407,12 @@ const Profile = () => {
                                 </div>
 
                                 <div className="sm:col-span-2">
-                                    <label className="text-xs text-dimmed block mb-2">Ubicacion</label>
+                                    <label className="text-xs text-dimmed block mb-2">Ubicación</label>
                                     <input
                                         className="input-field"
                                         value={form.ubicacion}
                                         onChange={(event) => setForm((prev) => ({ ...prev, ubicacion: event.target.value }))}
-                                        placeholder="Ej: Madrid, Espana"
+                                        placeholder="Ej: Madrid, España"
                                     />
                                 </div>
 
@@ -420,14 +420,14 @@ const Profile = () => {
                         </div>
 
                         <div className="glass-card border-none p-6">
-                            <h3 className="text-lg font-bold mb-4">Educacion</h3>
+                            <h3 className="text-lg font-bold mb-4">Educación</h3>
 
                             <div className="flex flex-col sm:flex-row gap-3 mb-4">
                                 <input
                                     className="input-field"
                                     value={nuevaEducacion}
                                     onChange={(event) => setNuevaEducacion(event.target.value)}
-                                    placeholder="Ej: Master en Ciberseguridad - UOC"
+                                    placeholder="Ej: Máster en Ciberseguridad - UOC"
                                 />
                                 <button
                                     type="button"
@@ -440,7 +440,7 @@ const Profile = () => {
 
                             <div className="space-y-2">
                                 {form.educacion.length === 0 && (
-                                    <p className="text-sm text-faint">Aun no agregaste items de educacion.</p>
+                                    <p className="text-sm text-faint">Aún no agregaste ítems de educación.</p>
                                 )}
 
                                 {form.educacion.map((item, index) => (
@@ -450,7 +450,7 @@ const Profile = () => {
                                             type="button"
                                             onClick={() => removeEducacion(index)}
                                             className="text-dimmed hover:text-primary transition-colors"
-                                            aria-label={`Eliminar educacion ${index + 1}`}
+                                            aria-label={`Eliminar educación ${index + 1}`}
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -492,10 +492,10 @@ const Profile = () => {
                         </div>
 
                         <div className="glass-card border-none p-6">
-                            <h3 className="text-lg font-bold mb-3">Vista rapida</h3>
+                            <h3 className="text-lg font-bold mb-3">Vista rápida</h3>
                             <div className="text-sm space-y-2 text-subtle">
                                 <p className="flex items-center gap-2"><User className="w-4 h-4 text-primary" /> {form.nombre || 'Sin nombre'}</p>
-                                <p>{form.educacion.length} item(s) de educacion</p>
+                                <p>{form.educacion.length} ítem(s) de educación</p>
                                 <p>GitHub: {form.github ? 'configurado' : 'no configurado'}</p>
                                 <p>LinkedIn: {form.linkedin ? 'configurado' : 'no configurado'}</p>
                             </div>
