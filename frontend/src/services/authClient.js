@@ -25,6 +25,28 @@ export function saveSession(sessionData) {
     console.log('[AUTH TRACE] sesión guardada en localStorage');
 }
 
+export async function refreshSession() {
+    const session = getSession();
+    if (!session?.refreshToken) return null;
+
+    const response = await fetch(`${API_BASE_URL}/RefreshToken`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: session.refreshToken })
+    });
+
+    const data = await response.json();
+
+    if (data.codigo !== 0) {
+        clearSession();
+        return null;
+    }
+
+    const nuevaSesion = { ...session, accessToken: data.accessToken, refreshToken: data.refreshToken };
+    saveSession(nuevaSesion);
+    return nuevaSesion;
+}
+
 export function getSession() {
     const rawSession = localStorage.getItem(SESSION_KEY);
     if (!rawSession) {

@@ -109,13 +109,16 @@ const ProductDetail = () => {
 
   const handleConfirmarPago = async () => {
     setEstadoPago('cargando');
+    console.log("[ScriptBay] Iniciando pago - Producto:", product.title, "| Precio:", product.price, "EUR");
     const resultado = await postPagarProducto(product.title, product.price);
     if (resultado.codigo === 0) {
       setEstadoPago('ok');
       setMensajePago(resultado.mensaje);
+      console.log("[ScriptBay] Pago realizado con exito - PaymentIntent:", resultado.paymentIntentId);
     } else {
       setEstadoPago('error');
       setMensajePago(resultado.mensaje);
+      console.log("[ScriptBay] Error en el pago:", resultado.mensaje);
     }
   };
 
