@@ -2,12 +2,14 @@ import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import Navbar from './components/Navbar';
+import ThemeToggle from './components/ThemeToggle';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import CreateProduct from './pages/CreateProduct';
 import ProductDetail from './pages/ProductDetail';
+import EditProduct from './pages/EditProduct';
 import ParticlesBackground from './components/ParticlesBackground';
 import ChatAssistant from './components/ChatAssistant';
 import { getSession } from './services/authClient';
@@ -54,7 +56,10 @@ const PageShell = () => {
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/profile" element={<Profile />} />
+                  <Route path="/profile/:username" element={<Profile />} />
+                  <Route path="/edit-profile" element={<Profile />} />
                   <Route path="/create-product" element={<CreateProduct />} />
+                  <Route path="/edit-product/:id" element={<EditProduct />} />
                   <Route path="/producto/:id" element={<ProductDetail />} />
                 </Routes>
               </motion.div>
@@ -78,7 +83,10 @@ const PageShell = () => {
         </footer>
 
         {/* Chat Assistant Flotante */}
-        <ChatAssistant />
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+          <ThemeToggle />
+          <ChatAssistant />
+        </div>
       </div>
     </div>
   );
