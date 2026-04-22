@@ -1,12 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 import 'dotenv/config';
 
-const supabaseUrl = process.env.PROJECT_URL;
-// Usar SERVICE_ROLE en backend es más seguro para poder crear perfiles o gestionar usuarios sin bloqueos de RLS
-const supabaseKey = process.env.SERVICE_ROLE || process.env.PUBLISHABLE_KEY;
+const supabaseUrl = process.env.PROJECT_URL || process.env.SUPABASE_URL;
+// Se aceptan varios nombres para facilitar distintos formatos de .env
+const supabaseKey =
+    process.env.SERVICE_ROLE ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.PUBLISHABLE_KEY ||
+    process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Supabase PROJECT_URL or SERVICE_ROLE/PUBLISHABLE_KEY is missing in .env file');
+    throw new Error(
+        'Faltan variables de Supabase en backend/.env. Usa PROJECT_URL o SUPABASE_URL y SERVICE_ROLE/SUPABASE_SERVICE_ROLE_KEY (o PUBLISHABLE_KEY/SUPABASE_ANON_KEY).'
+    );
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
