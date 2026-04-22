@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Github, Linkedin, MapPin, Move, Plus, Save, Trash2, Upload, User } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { getSession, refreshSession, saveSession } from '../services/authClient.js';
-import ProductCard from '../components/ProductCard.jsx';
 import { normalizeImageUrl } from '../utils/imageUrl.js';
 
 const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
@@ -19,7 +18,19 @@ const getInitials = (name) => name
     .map((part) => part[0]?.toUpperCase() || '')
     .join('');
 
+const parseApiResponse = async (response, defaultMessage) => {
+    const contentType = response.headers.get('content-type') || '';
+
+    if (!contentType.includes('application/json')) {
+        const raw = await response.text();
+        throw new Error(`${defaultMessage}. El servidor devolvió contenido no JSON.`);
+    }
+
+    return response.json();
+};
+
 const Profile = () => {
+    const location = useLocation();
     const [form, setForm] = useState({ nombre: '', titular: '', ubicacion: '', educacion: [], github: '', linkedin: '' });
     const [nuevaEducacion, setNuevaEducacion] = useState('');
     const [bannerUrl, setBannerUrl] = useState('');
@@ -34,6 +45,7 @@ const Profile = () => {
     const [isDraggingBanner, setIsDraggingBanner] = useState(false);
     const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
     const [misProductos, setMisProductos] = useState([]);
+    const [activeSection, setActiveSection] = useState('productos');
 
     const getActiveSession = async () => (await refreshSession()) || getSession();
 
@@ -47,7 +59,7 @@ const Profile = () => {
                     Authorization: `Bearer ${session.accessToken}`
                 }
             });
-            const data = await response.json();
+            const data = await parseApiResponse(response, 'No se pudieron cargar tus productos');
             if (data.codigo === 0) {
                 setMisProductos(data.productos || []);
             }
@@ -81,6 +93,13 @@ const Profile = () => {
         cargarMisProductos();
     }, []);
 
+    useEffect(() => {
+        const tab = new URLSearchParams(location.search).get('tab');
+        if (tab === 'editar' || tab === 'productos') {
+            setActiveSection(tab);
+        }
+    }, [location.search]);
+
     const handleEliminarProducto = async (idProducto) => {
         const session = await getActiveSession();
         if (!session?.accessToken) {
@@ -100,7 +119,7 @@ const Profile = () => {
                 },
                 body: JSON.stringify({ id: idProducto })
             });
-            const data = await response.json();
+            const data = await parseApiResponse(response, 'No se pudo eliminar la publicación');
 
             if (data.codigo !== 0) {
                 throw new Error(data.mensaje || 'No se pudo eliminar la publicación.');
@@ -256,7 +275,8 @@ const Profile = () => {
             avatar: avatarUrl || null,
             banner: bannerUrl || null,
             avatar_offset: avatarOffset,
-            banner_offset: bannerOffset
+            banner_offset: bannerOffset,
+            banner_zoom: bannerZoom
         };
 
         const sessionPayload = {
@@ -274,7 +294,7 @@ const Profile = () => {
                 body: JSON.stringify(payload)
             });
 
-            const data = await response.json();
+            const data = await parseApiResponse(response, 'No fue posible guardar el perfil');
 
             if (data.codigo !== 0) {
                 setFeedback({ type: 'error', message: data.mensaje || 'No fue posible guardar el perfil.' });
@@ -299,6 +319,7 @@ const Profile = () => {
     return (
         <div className="pt-28 pb-20 px-4 sm:px-6 max-w-7xl mx-auto min-h-screen">
             <div className="glass-card overflow-hidden border-none">
+                {activeSection === 'editar' && (
                 <div className="relative">
                     <div
                         className={`relative h-56 sm:h-72 lg:h-80 overflow-hidden border-b border-zinc-200 dark:border-white/10 bg-linear-to-r from-primary/30 via-primary/20 to-accent/25 transition-all duration-300 ${isDraggingBanner ? 'brightness-75 outline outline-4 outline-primary -outline-offset-4' : ''}`}
@@ -419,11 +440,26 @@ const Profile = () => {
                         </div>
                     </div>
                 </div>
+                )}
 
-                <div className="px-6 sm:px-10 pb-10 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8">
-                    <section className="space-y-6">
-                        <div className="glass-card border-none p-6">
-                            <h2 className="text-xl font-bold mb-5">Editar perfil</h2>
+                <div className="px-6 sm:px-10 pb-10">
+                    {activeSection === 'productos' && (
+                        <div className="mb-8 text-center">
+                            <div className="inline-flex items-center rounded-full border border-primary/35 bg-primary/10 px-4 py-1.5 mb-3">
+                                <span className="text-[11px] sm:text-xs uppercase tracking-[0.2em] font-semibold text-primary">Panel de vendedor</span>
+                            </div>
+                            <h2 className="text-2xl sm:text-3xl font-bold text-base-primary">Mis productos</h2>
+                            <p className="mt-2 text-sm text-subtle">
+                                {misProductos.length} {misProductos.length === 1 ? 'producto publicado' : 'productos publicados'}
+                            </p>
+                        </div>
+                    )}
+
+                    {activeSection === 'editar' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8">
+                            <section className="space-y-6">
+                                <div className="glass-card border-none p-6">
+                                    <h2 className="text-xl font-bold mb-5">Editar perfil</h2>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
@@ -457,10 +493,10 @@ const Profile = () => {
                                 </div>
 
                             </div>
-                        </div>
+                                </div>
 
-                        <div className="glass-card border-none p-6">
-                            <h3 className="text-lg font-bold mb-4">Educación</h3>
+                                <div className="glass-card border-none p-6">
+                                    <h3 className="text-lg font-bold mb-4">Educación</h3>
 
                             <div className="flex flex-col sm:flex-row gap-3 mb-4">
                                 <input
@@ -497,12 +533,12 @@ const Profile = () => {
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    </section>
+                                </div>
+                            </section>
 
-                    <aside className="space-y-6">
-                        <div className="glass-card border-none p-6 space-y-4">
-                            <h3 className="text-lg font-bold">Enlaces opcionales</h3>
+                            <aside className="space-y-6">
+                                <div className="glass-card border-none p-6 space-y-4">
+                                    <h3 className="text-lg font-bold">Enlaces opcionales</h3>
 
                             <div>
                                 <label className="text-xs text-dimmed block mb-2">Repositorio GitHub (opcional)</label>
@@ -529,72 +565,119 @@ const Profile = () => {
                                     />
                                 </div>
                             </div>
-                        </div>
+                                </div>
 
-                        <div className="glass-card border-none p-6">
-                            <h3 className="text-lg font-bold mb-3">Vista rápida</h3>
-                            <div className="text-sm space-y-2 text-subtle">
-                                <p className="flex items-center gap-2"><User className="w-4 h-4 text-primary" /> {form.nombre || 'Sin nombre'}</p>
-                                <p>{form.educacion.length} ítem(s) de educación</p>
-                                <p>GitHub: {form.github ? 'configurado' : 'no configurado'}</p>
-                                <p>LinkedIn: {form.linkedin ? 'configurado' : 'no configurado'}</p>
-                            </div>
+                                <div className="glass-card border-none p-6">
+                                    <h3 className="text-lg font-bold mb-3">Vista rápida</h3>
+                                    <div className="text-sm space-y-2 text-subtle">
+                                        <p className="flex items-center gap-2"><User className="w-4 h-4 text-primary" /> {form.nombre || 'Sin nombre'}</p>
+                                        <p>{form.educacion.length} ítem(s) de educación</p>
+                                        <p>GitHub: {form.github ? 'configurado' : 'no configurado'}</p>
+                                        <p>LinkedIn: {form.linkedin ? 'configurado' : 'no configurado'}</p>
+                                    </div>
 
-                            <button
-                                type="button"
-                                onClick={HandlerGuardarPerfil}
-                                className="btn-primary w-full mt-5 flex items-center justify-center gap-2"
-                            >
-                                <Save className="w-4 h-4" /> Guardar perfil
-                            </button>
-
-                            {feedback.message && (
-                                <p className={`text-xs mt-3 ${feedback.type === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>
-                                    {feedback.message}
-                                </p>
-                            )}
-                        </div>
-                    </aside>
-                </div>
-            </div>
-
-            <div className="mt-10 px-6 sm:px-10 pb-10">
-                <h2 className="text-2xl font-bold mb-1 text-base-primary">Mis productos publicados</h2>
-                <p className="text-sm text-subtle mb-6">Aquí aparecen los productos que tú has creado para vender en el marketplace.</p>
-                {misProductos.length === 0 ? (
-                    <p className="text-faint text-sm">Todavía no has publicado productos.</p>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {misProductos.map((product) => (
-                            <div key={product.id} className="space-y-3">
-                                <ProductCard
-                                    id={product.id}
-                                    title={product.titulo}
-                                    category={product.categoria || product.tipo}
-                                    price={product.precio ?? 0}
-                                    rating={0}
-                                    reviews={0}
-                                    image={normalizeImageUrl(product.imagen)}
-                                />
-                                <div className="grid grid-cols-2 gap-2">
-                                    <Link
-                                        to={`/edit-product/${product.id}`}
-                                        className="btn-secondary text-xs sm:text-sm py-2 text-center"
-                                    >
-                                        Editar
-                                    </Link>
                                     <button
                                         type="button"
-                                        onClick={() => handleEliminarProducto(product.id)}
-                                        className="btn-primary text-xs sm:text-sm py-2"
+                                        onClick={HandlerGuardarPerfil}
+                                        className="btn-primary w-full mt-5 flex items-center justify-center gap-2"
                                     >
-                                        Eliminar
+                                        <Save className="w-4 h-4" /> Guardar perfil
                                     </button>
+
+                                    {feedback.message && (
+                                        <p className={`text-xs mt-3 ${feedback.type === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>
+                                            {feedback.message}
+                                        </p>
+                                    )}
                                 </div>
+                            </aside>
+                        </div>
+                    )}
+
+                    {activeSection === 'productos' && (
+                        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top,rgba(255,26,26,0.13),transparent_45%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-6 sm:p-8 shadow-[0_24px_80px_-28px_rgba(0,0,0,0.55)]">
+                            <div className="pointer-events-none absolute -top-20 -right-20 w-56 h-56 rounded-full bg-primary/10 blur-3xl" />
+                            <div className="flex flex-col items-center text-center">
+                                <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full overflow-hidden border-[3px] border-primary/50 bg-linear-to-br from-primary to-accent text-white flex items-center justify-center text-4xl font-bold shadow-[0_20px_50px_-18px_rgba(255,26,26,0.75)]">
+                                    {avatarUrl ? (
+                                        <img
+                                            src={avatarUrl}
+                                            alt="Foto de perfil"
+                                            className="w-full h-full object-contain"
+                                            style={{ transform: `translate(${avatarOffset.x}px, ${avatarOffset.y}px)` }}
+                                        />
+                                    ) : (
+                                        <span>{getInitials(form.nombre || 'Usuario')}</span>
+                                    )}
+                                </div>
+                                <p className="mt-4 text-2xl sm:text-3xl font-bold text-base-primary">{form.nombre || 'Tu nombre'}</p>
+                                <p className="text-xs sm:text-sm text-subtle mt-1">Catálogo publicado</p>
                             </div>
-                        ))}
-                    </div>
-                )}
+
+                            <div className="relative mt-7 sm:mt-9 rounded-2xl border border-zinc-300/70 dark:border-white/10 bg-white/85 dark:bg-black/30 backdrop-blur-md p-4 sm:p-6">
+                                {misProductos.length === 0 ? (
+                                    <p className="text-faint text-sm text-center">Todavía no has publicado productos.</p>
+                                ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                                        {misProductos.map((product) => {
+                                            const imageUrl = normalizeImageUrl(product.imagen) || `https://picsum.photos/seed/profile-${product.id}/500/320`;
+                                            const isService = String(product.tipo || '').toLowerCase() === 'servicio';
+                                            const toneHoverClass = isService
+                                                ? 'hover:border-blue-400/45 hover:shadow-[0_12px_34px_-16px_rgba(59,130,246,0.45)]'
+                                                : 'hover:border-violet-400/45 hover:shadow-[0_12px_34px_-16px_rgba(168,85,247,0.45)]';
+
+                                            return (
+                                                <article
+                                                    key={product.id}
+                                                    className={`rounded-2xl overflow-hidden border border-zinc-300/70 dark:border-white/10 bg-white dark:bg-zinc-900/95 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.35)] transition-all duration-300 hover:-translate-y-1 ${toneHoverClass}`}
+                                                >
+                                                    <Link to={`/producto/${product.id}`} className="block">
+                                                        <div className="relative h-36 bg-zinc-100 dark:bg-black overflow-hidden">
+                                                            <img
+                                                                src={imageUrl}
+                                                                alt={product.titulo || 'Producto'}
+                                                                className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                                                            />
+                                                            <span className="absolute top-2 right-2 rounded-full bg-black/70 text-white text-[10px] px-2 py-1 border border-white/15">
+                                                                {product.categoria || product.tipo || 'General'}
+                                                            </span>
+                                                        </div>
+                                                    </Link>
+
+                                                    <div className="p-3">
+                                                        <Link to={`/producto/${product.id}`} className="block">
+                                                            <h3 className="text-sm font-bold text-base-primary line-clamp-2 min-h-10">
+                                                                {product.titulo || 'Producto sin título'}
+                                                            </h3>
+                                                        </Link>
+
+                                                        <p className="text-primary font-bold text-base mt-1">{Number(product.precio ?? 0)}€</p>
+
+                                                        <div className="grid grid-cols-2 gap-2 mt-3">
+                                                            <Link
+                                                                to={`/edit-product/${product.id}`}
+                                                                className="btn-secondary text-xs py-2 text-center"
+                                                            >
+                                                                Editar
+                                                            </Link>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleEliminarProducto(product.id)}
+                                                                className="btn-primary text-xs py-2"
+                                                            >
+                                                                Eliminar
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </article>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
