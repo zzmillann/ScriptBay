@@ -155,11 +155,11 @@ objetoRouter.post('/ActualizarPerfil', async (req, res, next) => {
 
         if (authError) throw authError;
 
-        const { nombre, titular, ubicacion, educacion, github, linkedin, avatar, banner, avatar_offset, banner_offset } = req.body;
+        const { nombre, titular, ubicacion, educacion, github, linkedin, avatar, banner, avatar_offset, banner_offset, banner_zoom } = req.body;
 
         const { error } = await supabase
             .from('perfiles')
-            .update({ nombre, titular, ubicacion, educacion, github, linkedin, avatar, banner, avatar_offset, banner_offset })
+            .update({ nombre, titular, ubicacion, educacion, github, linkedin, avatar, banner, avatar_offset, banner_offset, banner_zoom })
             .eq('id', user.id);
 
         if (error) throw error;
