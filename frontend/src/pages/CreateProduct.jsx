@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Euro, FileText, ImagePlus, Tag } from 'lucide-react';
-import { getSession, refreshSession } from '../services/authClient.js';
+import { clearSession, getSession, refreshSession } from '../services/authClient.js';
 import { normalizeImageUrl } from '../utils/imageUrl.js';
 
 const parseApiResponse = async (response, defaultMessage) => {
@@ -119,11 +119,15 @@ const CreateProduct = () => {
       const session = (await refreshSession()) || getSession();
       const accessToken = session?.accessToken;
 
+      if (!accessToken) {
+        throw new Error('Tu sesion ha expirado. Inicia sesion de nuevo para publicar.');
+      }
+
       const response = await fetch('http://localhost:3000/api/productos/GuardarProducto', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+          Authorization: `Bearer ${accessToken}`
         },
         body: JSON.stringify(payload)
       });
@@ -135,6 +139,11 @@ const CreateProduct = () => {
       const data = await parseApiResponse(response, 'No se pudo guardar el producto');
 
       if (data.codigo !== 0) {
+        const rawMessage = String(data.mensaje || '');
+        if (/invalid\s+jwt|token\s+is\s+expired|jwt/i.test(rawMessage)) {
+          clearSession();
+          throw new Error('Tu sesion ha expirado. Inicia sesion de nuevo para publicar.');
+        }
         throw new Error(data.mensaje || 'No se pudo guardar el producto.');
       }
 
