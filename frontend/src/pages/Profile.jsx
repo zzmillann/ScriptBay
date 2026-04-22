@@ -23,6 +23,7 @@ const Profile = () => {
     const [bannerUrl, setBannerUrl] = useState('');
     const [avatarUrl, setAvatarUrl] = useState('');
     const [bannerOffset, setBannerOffset] = useState({ x: 0, y: 0 });
+    const [bannerZoom, setBannerZoom] = useState(1);
     const [avatarOffset, setAvatarOffset] = useState({ x: 0, y: 0 });
     const [draggingTarget, setDraggingTarget] = useState(null);
     const [feedback, setFeedback] = useState({ type: '', message: '' });
@@ -51,6 +52,7 @@ const Profile = () => {
         if (d.banner) {
             setBannerUrl(d.banner);
             setBannerOffset(d.banner_offset || { x: 0, y: 0 });
+            setBannerZoom(Number(d.banner_zoom) || 1);
         }
 
         const cargarMisProductos = async () => {
@@ -145,6 +147,7 @@ const Profile = () => {
             if (target === 'banner') {
                 setBannerUrl(imageUrl);
                 setBannerOffset({ x: 0, y: 0 });
+                setBannerZoom(1);
             } else {
                 setAvatarUrl(imageUrl);
                 setAvatarOffset({ x: 0, y: 0 });
@@ -166,6 +169,7 @@ const Profile = () => {
             if (target === 'banner') {
                 setBannerUrl(imageUrl);
                 setBannerOffset({ x: 0, y: 0 });
+                setBannerZoom(1);
             } else {
                 setAvatarUrl(imageUrl);
                 setAvatarOffset({ x: 0, y: 0 });
@@ -215,6 +219,11 @@ const Profile = () => {
             banner_offset: bannerOffset
         };
 
+        const sessionPayload = {
+            ...payload,
+            banner_zoom: bannerZoom
+        };
+
         try {
             const response = await fetch('http://localhost:3000/api/Cliente/ActualizarPerfil', {
                 method: 'POST',
@@ -236,7 +245,7 @@ const Profile = () => {
                 ...session,
                 datosCliente: {
                     ...session.datosCliente,
-                    ...payload
+                    ...sessionPayload
                 }
             });
 
@@ -252,7 +261,7 @@ const Profile = () => {
             <div className="glass-card overflow-hidden border-none">
                 <div className="relative">
                     <div
-                        className={`relative h-40 sm:h-48 overflow-hidden border-b border-zinc-200 dark:border-white/10 bg-linear-to-r from-primary/30 via-primary/20 to-accent/25 transition-all duration-300 ${isDraggingBanner ? 'brightness-75 outline outline-4 outline-primary -outline-offset-4' : ''}`}
+                        className={`relative h-56 sm:h-72 lg:h-80 overflow-hidden border-b border-zinc-200 dark:border-white/10 bg-linear-to-r from-primary/30 via-primary/20 to-accent/25 transition-all duration-300 ${isDraggingBanner ? 'brightness-75 outline outline-4 outline-primary -outline-offset-4' : ''}`}
                         onDragEnter={(event) => handleDragOver(event, 'banner')}
                         onDragOver={(event) => handleDragOver(event, 'banner')}
                         onDragLeave={(event) => handleDragLeave(event, 'banner')}
@@ -266,14 +275,23 @@ const Profile = () => {
                             </div>
                         )}
                         {bannerUrl && (
-                            <img
-                                src={bannerUrl}
-                                alt="Banner del perfil"
-                                className={`absolute inset-0 w-full h-full object-cover select-none ${draggingTarget === 'banner' ? 'cursor-grabbing' : 'cursor-grab'}`}
-                                style={{ transform: `translate(${bannerOffset.x}px, ${bannerOffset.y}px) scale(1.05)` }}
-                                onMouseDown={(event) => onDragImageStart(event, 'banner')}
-                                draggable={false}
-                            />
+                            <>
+                                <img
+                                    src={bannerUrl}
+                                    alt=""
+                                    aria-hidden="true"
+                                    className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-35 pointer-events-none"
+                                    draggable={false}
+                                />
+                                <img
+                                    src={bannerUrl}
+                                    alt="Banner del perfil"
+                                    className={`absolute inset-0 w-full h-full object-contain select-none ${draggingTarget === 'banner' ? 'cursor-grabbing' : 'cursor-grab'}`}
+                                    style={{ transform: `translate(${bannerOffset.x}px, ${bannerOffset.y}px) scale(${bannerZoom})` }}
+                                    onMouseDown={(event) => onDragImageStart(event, 'banner')}
+                                    draggable={false}
+                                />
+                            </>
                         )}
 
                         <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-darker/70" />
@@ -284,6 +302,24 @@ const Profile = () => {
                                 <input type="file" accept="image/*" className="hidden" onChange={(event) => onSelectFile(event, 'banner')} />
                             </label>
                         </div>
+
+                        {bannerUrl && (
+                            <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-10 w-44 rounded-2xl bg-darker/65 backdrop-blur-md border border-white/10 px-3 py-2">
+                                <div className="flex items-center justify-between text-[11px] text-white/80 mb-1.5">
+                                    <span>Zoom banner</span>
+                                    <span>{Math.round(bannerZoom * 100)}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="2.2"
+                                    step="0.05"
+                                    value={bannerZoom}
+                                    onChange={(event) => setBannerZoom(Number(event.target.value))}
+                                    className="w-full accent-primary"
+                                />
+                            </div>
+                        )}
 
                         <p className="absolute top-3 left-3 sm:top-4 sm:left-4 right-4 text-[11px] sm:text-xs text-subtle flex items-center gap-2">
                             <Move className="w-3 h-3" />
@@ -310,8 +346,8 @@ const Profile = () => {
                                         <img
                                             src={avatarUrl}
                                             alt="Foto de perfil"
-                                            className={`absolute inset-0 w-full h-full object-cover select-none ${draggingTarget === 'avatar' ? 'cursor-grabbing' : 'cursor-grab'}`}
-                                            style={{ transform: `translate(${avatarOffset.x}px, ${avatarOffset.y}px) scale(1.1)` }}
+                                            className={`absolute inset-0 w-full h-full object-contain select-none ${draggingTarget === 'avatar' ? 'cursor-grabbing' : 'cursor-grab'}`}
+                                            style={{ transform: `translate(${avatarOffset.x}px, ${avatarOffset.y}px)` }}
                                             onMouseDown={(event) => onDragImageStart(event, 'avatar')}
                                             draggable={false}
                                         />
