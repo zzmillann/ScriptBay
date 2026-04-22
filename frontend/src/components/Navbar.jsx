@@ -75,7 +75,7 @@ const Navbar = () => {
         <>
         <nav className="fixed top-0 left-0 right-0 z-50 glass-card mx-4 my-4 border-none !rounded-2xl">
             <div className="max-w-7xl mx-auto px-8 lg:px-10 h-[76px] flex items-center gap-4 lg:gap-5">
-                {/* IZQUIERDA: Logo + Publicar */}
+                {/* IZQUIERDA: Logo + Publicar + Carrito */}
                 <div className="hidden md:flex items-center gap-4 shrink-0">
                     <Link to="/" className="flex items-center gap-2 group shrink-0">
                         <span className="text-2xl lg:text-[1.75rem] font-bold tracking-tight leading-none">
@@ -87,6 +87,10 @@ const Navbar = () => {
                         className="btn-primary btn-shine text-base px-5 py-2.5 shadow-none border border-primary/40 bg-primary/15 shrink-0"
                     >
                         Publicar producto
+                    </Link>
+                    <Link to="/cart" className="icon-control relative w-12 h-12">
+                        <ShoppingCart className="w-7 h-7 text-faint" />
+                        <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
                     </Link>
                 </div>
 
@@ -118,10 +122,6 @@ const Navbar = () => {
                             </Link>
                         </>
                     )}
-                    <Link to="/cart" className="icon-control relative w-12 h-12">
-                        <ShoppingCart className="w-7 h-7 text-faint" />
-                        <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
-                    </Link>
                     {session ? (
                         <div className="relative" ref={avatarMenuRef}>
                             <button
@@ -177,7 +177,7 @@ const Navbar = () => {
                                             Ver perfil
                                         </button>
                                         <Link
-                                            to="/edit-profile"
+                                            to="/profile?tab=editar"
                                             onClick={() => setIsAvatarMenuOpen(false)}
                                             className="block rounded-xl px-3 py-2 text-sm text-base-secondary hover:bg-primary/15 hover:text-primary transition-colors"
                                         >
@@ -240,7 +240,7 @@ const Navbar = () => {
                                 >
                                     Ver perfil
                                 </button>
-                                <Link to="/edit-profile" className="menu-item">Editar perfil</Link>
+                                <Link to="/profile?tab=editar" className="menu-item">Editar perfil</Link>
                                 <Link to={productsPath} className="menu-item">Mis productos</Link>
                                 <button onClick={handleLogout} className="menu-item text-left">Cerrar sesión</button>
                             </>
