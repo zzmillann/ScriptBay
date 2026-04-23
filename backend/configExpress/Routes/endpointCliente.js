@@ -157,10 +157,33 @@ objetoRouter.post('/ActualizarPerfil', async (req, res, next) => {
 
         const { nombre, titular, ubicacion, educacion, github, linkedin, avatar, banner, avatar_offset, banner_offset, banner_zoom } = req.body;
 
-        const { error } = await supabase
+        const payloadPerfil = {
+            nombre,
+            titular,
+            ubicacion,
+            educacion,
+            github,
+            linkedin,
+            avatar,
+            banner,
+            avatar_offset,
+            banner_offset,
+            banner_zoom
+        };
+
+        let { error } = await supabase
             .from('perfiles')
-            .update({ nombre, titular, ubicacion, educacion, github, linkedin, avatar, banner, avatar_offset, banner_offset, banner_zoom })
+            .update(payloadPerfil)
             .eq('id', user.id);
+
+        if (error && error.message?.includes("'banner_zoom'")) {
+            const { banner_zoom: _omitBannerZoom, ...payloadSinZoom } = payloadPerfil;
+            const retry = await supabase
+                .from('perfiles')
+                .update(payloadSinZoom)
+                .eq('id', user.id);
+            error = retry.error;
+        }
 
         if (error) throw error;
 
