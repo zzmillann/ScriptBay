@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Euro, FileText, ImagePlus, Tag } from 'lucide-react';
-import { clearSession, getSession, refreshSession } from '../services/authClient.js';
+import { clearSession, getValidSession } from '../services/authClient.js';
 import { normalizeImageUrl } from '../utils/imageUrl.js';
 
 const parseApiResponse = async (response, defaultMessage) => {
@@ -116,7 +116,7 @@ const CreateProduct = () => {
     payload.precio = formData.precio === '' ? null : Number(formData.precio);
 
     try {
-      const session = (await refreshSession()) || getSession();
+      const session = await getValidSession();
       const accessToken = session?.accessToken;
 
       if (!accessToken) {
