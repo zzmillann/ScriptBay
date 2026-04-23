@@ -1,6 +1,18 @@
 import { useMemo, useState } from 'react';
 import { Euro, FileText, ImagePlus, Tag } from 'lucide-react';
-import { getSession } from '../services/authClient.js';
+import { clearSession, getSession, refreshSession } from '../services/authClient.js';
+import { normalizeImageUrl } from '../utils/imageUrl.js';
+
+const parseApiResponse = async (response, defaultMessage) => {
+  const contentType = response.headers.get('content-type') || '';
+
+  if (!contentType.includes('application/json')) {
+    await response.text();
+    throw new Error(`${defaultMessage}. El servidor devolvió contenido no JSON.`);
+  }
+
+  return response.json();
+};
 
 const initialForm = {
   tipo: 'producto',
@@ -82,7 +94,7 @@ const CreateProduct = () => {
       tipo: formData.tipo,
       titulo: formData.titulo.trim(),
       descripcion: formData.descripcion.trim(),
-      imagen: formData.imagen.trim()
+      imagen: normalizeImageUrl(formData.imagen)
     };
 
     if (formData.tipo === 'producto') {
@@ -94,7 +106,6 @@ const CreateProduct = () => {
           }
         : null;
       payload.categoria = formData.categoria.trim();
-      payload.precio = formData.precio === '' ? null : Number(formData.precio);
     } else {
       payload.telefono = formData.telefono.trim();
       payload.email = formData.email.trim();
@@ -102,15 +113,21 @@ const CreateProduct = () => {
       payload.linkedin = formData.linkedin.trim() || null;
     }
 
+    payload.precio = formData.precio === '' ? null : Number(formData.precio);
+
     try {
-      const session = getSession();
+      const session = (await refreshSession()) || getSession();
       const accessToken = session?.accessToken;
+
+      if (!accessToken) {
+        throw new Error('Tu sesion ha expirado. Inicia sesion de nuevo para publicar.');
+      }
 
       const response = await fetch('http://localhost:3000/api/productos/GuardarProducto', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+          Authorization: `Bearer ${accessToken}`
         },
         body: JSON.stringify(payload)
       });
@@ -119,9 +136,14 @@ const CreateProduct = () => {
         throw new Error('No se pudo enviar el formulario.');
       }
 
-      const data = await response.json();
+      const data = await parseApiResponse(response, 'No se pudo guardar el producto');
 
       if (data.codigo !== 0) {
+        const rawMessage = String(data.mensaje || '');
+        if (/invalid\s+jwt|token\s+is\s+expired|jwt/i.test(rawMessage)) {
+          clearSession();
+          throw new Error('Tu sesion ha expirado. Inicia sesion de nuevo para publicar.');
+        }
         throw new Error(data.mensaje || 'No se pudo guardar el producto.');
       }
 
@@ -296,6 +318,27 @@ const CreateProduct = () => {
               ) : (
                 <div className={`${sectionClass} ${sectionInteractiveClass}`}>
                   <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-subtle">Contacto</h2>
+                  <div>
+                    <label htmlFor="precio" className={labelClass}>
+                      Precio del servicio
+                    </label>
+                    <div className="relative">
+                      <Euro className={iconRightClass} />
+                      <input
+                        id="precio"
+                        name="precio"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        required={!isProduct}
+                        value={formData.precio}
+                        onChange={handleInputChange}
+                        className={inputWithIconRight}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label htmlFor="telefono" className={labelClass}>
                       Teléfono

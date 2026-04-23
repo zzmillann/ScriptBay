@@ -3,6 +3,7 @@ import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import ProductCard from '../components/ProductCard';
 import { products as localProducts } from '../data/products';
 import { SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
+import { normalizeImageUrl } from '../utils/imageUrl';
 
 const tags = ['Todos', 'Scripts', 'Diseño', 'Plugins', 'Servicios', 'Backend'];
 
@@ -13,7 +14,7 @@ const normalizeProduct = (product) => ({
     price: Number(product.precio ?? product.price ?? 0),
     rating: Number(product.rating ?? 0),
     reviews: Number(product.reviews ?? 0),
-    image: product.imagen || product.image,
+    image: normalizeImageUrl(product.imagen || product.image || ''),
     rawType: (product.tipo || '').toString().toLowerCase(),
 });
 

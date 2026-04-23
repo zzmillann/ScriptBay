@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ShoppingCart, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
 const ProductCard = ({ id, title, category, price, rating, reviews, image }) => {
+    const fallbackImage = useMemo(() => `https://picsum.photos/seed/card-${id}/640/420`, [id]);
+    const [imgSrc, setImgSrc] = useState(image || fallbackImage);
+
+    useEffect(() => {
+        setImgSrc(image || fallbackImage);
+    }, [image, fallbackImage]);
+
     return (
         <Link to={`/producto/${id}`} className="block h-full">
             <motion.article
@@ -21,9 +28,10 @@ const ProductCard = ({ id, title, category, price, rating, reviews, image }) => 
                 {/* Imagen */}
                 <motion.div layoutId={`product-image-${id}`} className="relative h-48 overflow-hidden bg-zinc-100 dark:bg-black">
                     <img
-                        src={image || `https://picsum.photos/seed/card-${id}/640/420`}
+                        src={imgSrc}
                         alt={title}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        onError={() => setImgSrc(fallbackImage)}
                     />
                     <div className="absolute inset-0 bg-linear-to-t from-zinc-900/70 dark:from-darker to-transparent opacity-60" />
                     <div className="absolute top-4 right-4">

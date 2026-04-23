@@ -10,7 +10,7 @@ export default function ThemeToggle() {
     <button
       onClick={toggleTheme}
       aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-      className="relative w-9 h-9 flex items-center justify-center icon-control"
+      className="relative w-12 h-12 flex items-center justify-center icon-control"
     >
       <AnimatePresence mode="wait" initial={false}>
         {isDark ? (
@@ -22,7 +22,7 @@ export default function ThemeToggle() {
             transition={{ duration: 0.2 }}
             className="absolute"
           >
-            <Moon className="w-4 h-4 text-subtle" />
+            <Moon className="w-6 h-6 text-subtle" />
           </motion.span>
         ) : (
           <motion.span
@@ -33,7 +33,7 @@ export default function ThemeToggle() {
             transition={{ duration: 0.2 }}
             className="absolute"
           >
-            <Sun className="w-4 h-4 text-yellow-500" />
+            <Sun className="w-6 h-6 text-yellow-500" />
           </motion.span>
         )}
       </AnimatePresence>

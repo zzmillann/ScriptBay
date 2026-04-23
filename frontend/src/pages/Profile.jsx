@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Github, Linkedin, MapPin, Move, Plus, Save, Trash2, Upload, User } from 'lucide-react';
-import { getSession, saveSession } from '../services/authClient.js';
-import ProductCard from '../components/ProductCard.jsx';
+import { Link, useLocation } from 'react-router-dom';
+import { getSession, refreshSession, saveSession } from '../services/authClient.js';
+import { normalizeImageUrl } from '../utils/imageUrl.js';
 
 const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -17,12 +18,25 @@ const getInitials = (name) => name
     .map((part) => part[0]?.toUpperCase() || '')
     .join('');
 
+const parseApiResponse = async (response, defaultMessage) => {
+    const contentType = response.headers.get('content-type') || '';
+
+    if (!contentType.includes('application/json')) {
+        const raw = await response.text();
+        throw new Error(`${defaultMessage}. El servidor devolvió contenido no JSON.`);
+    }
+
+    return response.json();
+};
+
 const Profile = () => {
+    const location = useLocation();
     const [form, setForm] = useState({ nombre: '', titular: '', ubicacion: '', educacion: [], github: '', linkedin: '' });
     const [nuevaEducacion, setNuevaEducacion] = useState('');
     const [bannerUrl, setBannerUrl] = useState('');
     const [avatarUrl, setAvatarUrl] = useState('');
     const [bannerOffset, setBannerOffset] = useState({ x: 0, y: 0 });
+    const [bannerZoom, setBannerZoom] = useState(1);
     const [avatarOffset, setAvatarOffset] = useState({ x: 0, y: 0 });
     const [draggingTarget, setDraggingTarget] = useState(null);
     const [feedback, setFeedback] = useState({ type: '', message: '' });
@@ -31,6 +45,28 @@ const Profile = () => {
     const [isDraggingBanner, setIsDraggingBanner] = useState(false);
     const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
     const [misProductos, setMisProductos] = useState([]);
+    const [activeSection, setActiveSection] = useState('productos');
+
+    const getActiveSession = async () => (await refreshSession()) || getSession();
+
+    const cargarMisProductos = async () => {
+        const session = await getActiveSession();
+        if (!session?.accessToken) return;
+
+        try {
+            const response = await fetch('http://localhost:3000/api/productos/MisProductos', {
+                headers: {
+                    Authorization: `Bearer ${session.accessToken}`
+                }
+            });
+            const data = await parseApiResponse(response, 'No se pudieron cargar tus productos');
+            if (data.codigo === 0) {
+                setMisProductos(data.productos || []);
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    };
 
     useEffect(() => {
         const session = getSession();
@@ -51,25 +87,50 @@ const Profile = () => {
         if (d.banner) {
             setBannerUrl(d.banner);
             setBannerOffset(d.banner_offset || { x: 0, y: 0 });
+            setBannerZoom(Number(d.banner_zoom) || 1);
         }
 
-        const cargarMisProductos = async () => {
-            try {
-                const response = await fetch('http://localhost:3000/api/productos/MisProductos', {
-                    headers: {
-                        Authorization: `Bearer ${session.accessToken}`
-                    }
-                });
-                const data = await response.json();
-                if (data.codigo === 0) {
-                    setMisProductos(data.productos);
-                }
-            } catch (error) {
-                console.log(error);
-            }
-        };
         cargarMisProductos();
     }, []);
+
+    useEffect(() => {
+        const tab = new URLSearchParams(location.search).get('tab');
+        if (tab === 'editar' || tab === 'productos') {
+            setActiveSection(tab);
+        }
+    }, [location.search]);
+
+    const handleEliminarProducto = async (idProducto) => {
+        const session = await getActiveSession();
+        if (!session?.accessToken) {
+            setFeedback({ type: 'error', message: 'Debes iniciar sesión para eliminar productos.' });
+            return;
+        }
+
+        const confirmado = window.confirm('¿Seguro que quieres eliminar esta publicación? Esta acción no se puede deshacer.');
+        if (!confirmado) return;
+
+        try {
+            const response = await fetch('http://localhost:3000/api/productos/EliminarProducto', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session.accessToken}`
+                },
+                body: JSON.stringify({ id: idProducto })
+            });
+            const data = await parseApiResponse(response, 'No se pudo eliminar la publicación');
+
+            if (data.codigo !== 0) {
+                throw new Error(data.mensaje || 'No se pudo eliminar la publicación.');
+            }
+
+            setFeedback({ type: 'success', message: 'Publicación eliminada correctamente.' });
+            setMisProductos((prev) => prev.filter((item) => String(item.id) !== String(idProducto)));
+        } catch (error) {
+            setFeedback({ type: 'error', message: error.message || 'Error al eliminar publicación.' });
+        }
+    };
 
     useEffect(() => {
         const handleMouseMove = (event) => {
@@ -136,7 +197,7 @@ const Profile = () => {
         const file = event.dataTransfer.files?.[0];
 
         if (!file || !file.type.startsWith('image/')) {
-            setFeedback({ type: 'error', message: 'Solo se permiten imagenes para banner y foto de perfil.' });
+            setFeedback({ type: 'error', message: 'Solo se permiten imágenes para banner y foto de perfil.' });
             return;
         }
 
@@ -145,6 +206,7 @@ const Profile = () => {
             if (target === 'banner') {
                 setBannerUrl(imageUrl);
                 setBannerOffset({ x: 0, y: 0 });
+                setBannerZoom(1);
             } else {
                 setAvatarUrl(imageUrl);
                 setAvatarOffset({ x: 0, y: 0 });
@@ -166,6 +228,7 @@ const Profile = () => {
             if (target === 'banner') {
                 setBannerUrl(imageUrl);
                 setBannerOffset({ x: 0, y: 0 });
+                setBannerZoom(1);
             } else {
                 setAvatarUrl(imageUrl);
                 setAvatarOffset({ x: 0, y: 0 });
@@ -196,7 +259,7 @@ const Profile = () => {
     };
 
     const HandlerGuardarPerfil = async () => {
-        const session = getSession();
+        const session = await getActiveSession();
         if (!session) {
             setFeedback({ type: 'error', message: 'Debes iniciar sesión para guardar el perfil.' });
             return;
@@ -212,7 +275,13 @@ const Profile = () => {
             avatar: avatarUrl || null,
             banner: bannerUrl || null,
             avatar_offset: avatarOffset,
-            banner_offset: bannerOffset
+            banner_offset: bannerOffset,
+            banner_zoom: bannerZoom
+        };
+
+        const sessionPayload = {
+            ...payload,
+            banner_zoom: bannerZoom
         };
 
         try {
@@ -225,7 +294,7 @@ const Profile = () => {
                 body: JSON.stringify(payload)
             });
 
-            const data = await response.json();
+            const data = await parseApiResponse(response, 'No fue posible guardar el perfil');
 
             if (data.codigo !== 0) {
                 setFeedback({ type: 'error', message: data.mensaje || 'No fue posible guardar el perfil.' });
@@ -236,7 +305,7 @@ const Profile = () => {
                 ...session,
                 datosCliente: {
                     ...session.datosCliente,
-                    ...payload
+                    ...sessionPayload
                 }
             });
 
@@ -250,9 +319,10 @@ const Profile = () => {
     return (
         <div className="pt-28 pb-20 px-4 sm:px-6 max-w-7xl mx-auto min-h-screen">
             <div className="glass-card overflow-hidden border-none">
+                {activeSection === 'editar' && (
                 <div className="relative">
                     <div
-                        className={`relative h-40 sm:h-48 overflow-hidden border-b border-zinc-200 dark:border-white/10 bg-linear-to-r from-primary/30 via-primary/20 to-accent/25 transition-all duration-300 ${isDraggingBanner ? 'brightness-75 outline outline-4 outline-primary -outline-offset-4' : ''}`}
+                        className={`relative h-56 sm:h-72 lg:h-80 overflow-hidden border-b border-zinc-200 dark:border-white/10 bg-linear-to-r from-primary/30 via-primary/20 to-accent/25 transition-all duration-300 ${isDraggingBanner ? 'brightness-75 outline outline-4 outline-primary -outline-offset-4' : ''}`}
                         onDragEnter={(event) => handleDragOver(event, 'banner')}
                         onDragOver={(event) => handleDragOver(event, 'banner')}
                         onDragLeave={(event) => handleDragLeave(event, 'banner')}
@@ -266,14 +336,23 @@ const Profile = () => {
                             </div>
                         )}
                         {bannerUrl && (
-                            <img
-                                src={bannerUrl}
-                                alt="Banner del perfil"
-                                className={`absolute inset-0 w-full h-full object-cover select-none ${draggingTarget === 'banner' ? 'cursor-grabbing' : 'cursor-grab'}`}
-                                style={{ transform: `translate(${bannerOffset.x}px, ${bannerOffset.y}px) scale(1.05)` }}
-                                onMouseDown={(event) => onDragImageStart(event, 'banner')}
-                                draggable={false}
-                            />
+                            <>
+                                <img
+                                    src={bannerUrl}
+                                    alt=""
+                                    aria-hidden="true"
+                                    className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-35 pointer-events-none"
+                                    draggable={false}
+                                />
+                                <img
+                                    src={bannerUrl}
+                                    alt="Banner del perfil"
+                                    className={`absolute inset-0 w-full h-full object-contain select-none ${draggingTarget === 'banner' ? 'cursor-grabbing' : 'cursor-grab'}`}
+                                    style={{ transform: `translate(${bannerOffset.x}px, ${bannerOffset.y}px) scale(${bannerZoom})` }}
+                                    onMouseDown={(event) => onDragImageStart(event, 'banner')}
+                                    draggable={false}
+                                />
+                            </>
                         )}
 
                         <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-darker/70" />
@@ -285,9 +364,27 @@ const Profile = () => {
                             </label>
                         </div>
 
+                        {bannerUrl && (
+                            <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-10 w-44 rounded-2xl bg-darker/65 backdrop-blur-md border border-white/10 px-3 py-2">
+                                <div className="flex items-center justify-between text-[11px] text-white/80 mb-1.5">
+                                    <span>Zoom del banner</span>
+                                    <span>{Math.round(bannerZoom * 100)}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="2.2"
+                                    step="0.05"
+                                    value={bannerZoom}
+                                    onChange={(event) => setBannerZoom(Number(event.target.value))}
+                                    className="w-full accent-primary"
+                                />
+                            </div>
+                        )}
+
                         <p className="absolute top-3 left-3 sm:top-4 sm:left-4 right-4 text-[11px] sm:text-xs text-subtle flex items-center gap-2">
                             <Move className="w-3 h-3" />
-                            Arrastra una imagen o subela y luego muevela para encuadrar.
+                            Arrastra una imagen o súbela y luego muévela para encuadrar.
                         </p>
                     </div>
 
@@ -310,8 +407,8 @@ const Profile = () => {
                                         <img
                                             src={avatarUrl}
                                             alt="Foto de perfil"
-                                            className={`absolute inset-0 w-full h-full object-cover select-none ${draggingTarget === 'avatar' ? 'cursor-grabbing' : 'cursor-grab'}`}
-                                            style={{ transform: `translate(${avatarOffset.x}px, ${avatarOffset.y}px) scale(1.1)` }}
+                                            className={`absolute inset-0 w-full h-full object-contain select-none ${draggingTarget === 'avatar' ? 'cursor-grabbing' : 'cursor-grab'}`}
+                                            style={{ transform: `translate(${avatarOffset.x}px, ${avatarOffset.y}px)` }}
                                             onMouseDown={(event) => onDragImageStart(event, 'avatar')}
                                             draggable={false}
                                         />
@@ -329,7 +426,7 @@ const Profile = () => {
                                             className="bg-transparent border-b border-zinc-300 dark:border-white/20 focus:border-primary/60 outline-hidden text-zinc-700 dark:text-white/80 placeholder:text-zinc-400 dark:placeholder:text-white/40 px-0.5 py-0.5 w-full max-w-xs"
                                             value={form.ubicacion}
                                             onChange={(event) => setForm((prev) => ({ ...prev, ubicacion: event.target.value }))}
-                                            placeholder="Sin ubicacion"
+                                            placeholder="Sin ubicación"
                                         />
                                     </div>
                                 </div>
@@ -343,11 +440,26 @@ const Profile = () => {
                         </div>
                     </div>
                 </div>
+                )}
 
-                <div className="px-6 sm:px-10 pb-10 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8">
-                    <section className="space-y-6">
-                        <div className="glass-card border-none p-6">
-                            <h2 className="text-xl font-bold mb-5">Editar perfil</h2>
+                <div className="px-6 sm:px-10 pb-10">
+                    {activeSection === 'productos' && (
+                        <div className="mb-8 text-center">
+                            <div className="inline-flex items-center rounded-full border border-primary/35 bg-primary/10 px-4 py-1.5 mb-3">
+                                <span className="text-[11px] sm:text-xs uppercase tracking-[0.2em] font-semibold text-primary">Panel de vendedor</span>
+                            </div>
+                            <h2 className="text-2xl sm:text-3xl font-bold text-base-primary">Mis productos</h2>
+                            <p className="mt-2 text-sm text-subtle">
+                                {misProductos.length} {misProductos.length === 1 ? 'producto publicado' : 'productos publicados'}
+                            </p>
+                        </div>
+                    )}
+
+                    {activeSection === 'editar' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8">
+                            <section className="space-y-6">
+                                <div className="glass-card border-none p-6">
+                                    <h2 className="text-xl font-bold mb-5">Editar perfil</h2>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
@@ -356,7 +468,7 @@ const Profile = () => {
                                         className="input-field"
                                         value={form.nombre}
                                         onChange={(event) => setForm((prev) => ({ ...prev, nombre: event.target.value }))}
-                                        placeholder="Ej: Juan Perez"
+                                        placeholder="Ej: Juan Pérez"
                                     />
                                 </div>
 
@@ -371,27 +483,27 @@ const Profile = () => {
                                 </div>
 
                                 <div className="sm:col-span-2">
-                                    <label className="text-xs text-dimmed block mb-2">Ubicacion</label>
+                                    <label className="text-xs text-dimmed block mb-2">Ubicación</label>
                                     <input
                                         className="input-field"
                                         value={form.ubicacion}
                                         onChange={(event) => setForm((prev) => ({ ...prev, ubicacion: event.target.value }))}
-                                        placeholder="Ej: Madrid, Espana"
+                                        placeholder="Ej: Madrid, España"
                                     />
                                 </div>
 
                             </div>
-                        </div>
+                                </div>
 
-                        <div className="glass-card border-none p-6">
-                            <h3 className="text-lg font-bold mb-4">Educacion</h3>
+                                <div className="glass-card border-none p-6">
+                                    <h3 className="text-lg font-bold mb-4">Educación</h3>
 
                             <div className="flex flex-col sm:flex-row gap-3 mb-4">
                                 <input
                                     className="input-field"
                                     value={nuevaEducacion}
                                     onChange={(event) => setNuevaEducacion(event.target.value)}
-                                    placeholder="Ej: Master en Ciberseguridad - UOC"
+                                    placeholder="Ej: Máster en Ciberseguridad - UOC"
                                 />
                                 <button
                                     type="button"
@@ -404,7 +516,7 @@ const Profile = () => {
 
                             <div className="space-y-2">
                                 {form.educacion.length === 0 && (
-                                    <p className="text-sm text-faint">Aun no agregaste items de educacion.</p>
+                                    <p className="text-sm text-faint">Aún no agregaste ítems de educación.</p>
                                 )}
 
                                 {form.educacion.map((item, index) => (
@@ -414,19 +526,19 @@ const Profile = () => {
                                             type="button"
                                             onClick={() => removeEducacion(index)}
                                             className="text-dimmed hover:text-primary transition-colors"
-                                            aria-label={`Eliminar educacion ${index + 1}`}
+                                            aria-label={`Eliminar educación ${index + 1}`}
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    </section>
+                                </div>
+                            </section>
 
-                    <aside className="space-y-6">
-                        <div className="glass-card border-none p-6 space-y-4">
-                            <h3 className="text-lg font-bold">Enlaces opcionales</h3>
+                            <aside className="space-y-6">
+                                <div className="glass-card border-none p-6 space-y-4">
+                                    <h3 className="text-lg font-bold">Enlaces opcionales</h3>
 
                             <div>
                                 <label className="text-xs text-dimmed block mb-2">Repositorio GitHub (opcional)</label>
@@ -453,56 +565,119 @@ const Profile = () => {
                                     />
                                 </div>
                             </div>
-                        </div>
+                                </div>
 
-                        <div className="glass-card border-none p-6">
-                            <h3 className="text-lg font-bold mb-3">Vista rapida</h3>
-                            <div className="text-sm space-y-2 text-subtle">
-                                <p className="flex items-center gap-2"><User className="w-4 h-4 text-primary" /> {form.nombre || 'Sin nombre'}</p>
-                                <p>{form.educacion.length} item(s) de educacion</p>
-                                <p>GitHub: {form.github ? 'configurado' : 'no configurado'}</p>
-                                <p>LinkedIn: {form.linkedin ? 'configurado' : 'no configurado'}</p>
+                                <div className="glass-card border-none p-6">
+                                    <h3 className="text-lg font-bold mb-3">Vista rápida</h3>
+                                    <div className="text-sm space-y-2 text-subtle">
+                                        <p className="flex items-center gap-2"><User className="w-4 h-4 text-primary" /> {form.nombre || 'Sin nombre'}</p>
+                                        <p>{form.educacion.length} ítem(s) de educación</p>
+                                        <p>GitHub: {form.github ? 'configurado' : 'no configurado'}</p>
+                                        <p>LinkedIn: {form.linkedin ? 'configurado' : 'no configurado'}</p>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={HandlerGuardarPerfil}
+                                        className="btn-primary w-full mt-5 flex items-center justify-center gap-2"
+                                    >
+                                        <Save className="w-4 h-4" /> Guardar perfil
+                                    </button>
+
+                                    {feedback.message && (
+                                        <p className={`text-xs mt-3 ${feedback.type === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>
+                                            {feedback.message}
+                                        </p>
+                                    )}
+                                </div>
+                            </aside>
+                        </div>
+                    )}
+
+                    {activeSection === 'productos' && (
+                        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top,rgba(255,26,26,0.13),transparent_45%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-6 sm:p-8 shadow-[0_24px_80px_-28px_rgba(0,0,0,0.55)]">
+                            <div className="pointer-events-none absolute -top-20 -right-20 w-56 h-56 rounded-full bg-primary/10 blur-3xl" />
+                            <div className="flex flex-col items-center text-center">
+                                <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full overflow-hidden border-[3px] border-primary/50 bg-linear-to-br from-primary to-accent text-white flex items-center justify-center text-4xl font-bold shadow-[0_20px_50px_-18px_rgba(255,26,26,0.75)]">
+                                    {avatarUrl ? (
+                                        <img
+                                            src={avatarUrl}
+                                            alt="Foto de perfil"
+                                            className="w-full h-full object-contain"
+                                            style={{ transform: `translate(${avatarOffset.x}px, ${avatarOffset.y}px)` }}
+                                        />
+                                    ) : (
+                                        <span>{getInitials(form.nombre || 'Usuario')}</span>
+                                    )}
+                                </div>
+                                <p className="mt-4 text-2xl sm:text-3xl font-bold text-base-primary">{form.nombre || 'Tu nombre'}</p>
+                                <p className="text-xs sm:text-sm text-subtle mt-1">Catálogo publicado</p>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={HandlerGuardarPerfil}
-                                className="btn-primary w-full mt-5 flex items-center justify-center gap-2"
-                            >
-                                <Save className="w-4 h-4" /> Guardar perfil
-                            </button>
+                            <div className="relative mt-7 sm:mt-9 rounded-2xl border border-zinc-300/70 dark:border-white/10 bg-white/85 dark:bg-black/30 backdrop-blur-md p-4 sm:p-6">
+                                {misProductos.length === 0 ? (
+                                    <p className="text-faint text-sm text-center">Todavía no has publicado productos.</p>
+                                ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                                        {misProductos.map((product) => {
+                                            const imageUrl = normalizeImageUrl(product.imagen) || `https://picsum.photos/seed/profile-${product.id}/500/320`;
+                                            const isService = String(product.tipo || '').toLowerCase() === 'servicio';
+                                            const toneHoverClass = isService
+                                                ? 'hover:border-blue-400/45 hover:shadow-[0_12px_34px_-16px_rgba(59,130,246,0.45)]'
+                                                : 'hover:border-violet-400/45 hover:shadow-[0_12px_34px_-16px_rgba(168,85,247,0.45)]';
 
-                            {feedback.message && (
-                                <p className={`text-xs mt-3 ${feedback.type === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>
-                                    {feedback.message}
-                                </p>
-                            )}
+                                            return (
+                                                <article
+                                                    key={product.id}
+                                                    className={`rounded-2xl overflow-hidden border border-zinc-300/70 dark:border-white/10 bg-white dark:bg-zinc-900/95 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.35)] transition-all duration-300 hover:-translate-y-1 ${toneHoverClass}`}
+                                                >
+                                                    <Link to={`/producto/${product.id}`} className="block">
+                                                        <div className="relative h-36 bg-zinc-100 dark:bg-black overflow-hidden">
+                                                            <img
+                                                                src={imageUrl}
+                                                                alt={product.titulo || 'Producto'}
+                                                                className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                                                            />
+                                                            <span className="absolute top-2 right-2 rounded-full bg-black/70 text-white text-[10px] px-2 py-1 border border-white/15">
+                                                                {product.categoria || product.tipo || 'General'}
+                                                            </span>
+                                                        </div>
+                                                    </Link>
+
+                                                    <div className="p-3">
+                                                        <Link to={`/producto/${product.id}`} className="block">
+                                                            <h3 className="text-sm font-bold text-base-primary line-clamp-2 min-h-10">
+                                                                {product.titulo || 'Producto sin título'}
+                                                            </h3>
+                                                        </Link>
+
+                                                        <p className="text-primary font-bold text-base mt-1">{Number(product.precio ?? 0)}€</p>
+
+                                                        <div className="grid grid-cols-2 gap-2 mt-3">
+                                                            <Link
+                                                                to={`/edit-product/${product.id}`}
+                                                                className="btn-secondary text-xs py-2 text-center"
+                                                            >
+                                                                Editar
+                                                            </Link>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleEliminarProducto(product.id)}
+                                                                className="btn-primary text-xs py-2"
+                                                            >
+                                                                Eliminar
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </article>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </aside>
+                    )}
                 </div>
-            </div>
-
-            <div className="mt-10 px-6 sm:px-10 pb-10">
-                <h2 className="text-2xl font-bold mb-1 text-base-primary">Mis productos publicados</h2>
-                <p className="text-sm text-subtle mb-6">Aquí aparecen los productos que tú has creado para vender en el marketplace.</p>
-                {misProductos.length === 0 ? (
-                    <p className="text-faint text-sm">Todavía no has publicado productos.</p>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {misProductos.map((product) => (
-                            <ProductCard
-                                key={product.id}
-                                id={product.id}
-                                title={product.titulo}
-                                category={product.categoria || product.tipo}
-                                price={product.precio ?? 0}
-                                rating={0}
-                                reviews={0}
-                                image={product.imagen}
-                            />
-                        ))}
-                    </div>
-                )}
             </div>
         </div>
     );

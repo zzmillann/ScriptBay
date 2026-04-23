@@ -6,6 +6,7 @@ import ProductCard from '../components/ProductCard';
 import { getProductById, getRelatedProducts } from '../data/products';
 import { postPagarProducto } from '../services/stripeClient';
 import { getSession } from '../services/authClient';
+import { normalizeImageUrl } from '../utils/imageUrl';
 
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -65,7 +66,7 @@ const ProductDetail = () => {
             title: p.titulo,
             description: p.descripcion,
             price: p.precio,
-            image: p.imagen || `https://picsum.photos/seed/${p.id}/1200/900`,
+            image: normalizeImageUrl(p.imagen) || `https://picsum.photos/seed/${p.id}/1200/900`,
             category: p.categoria || p.tipo || 'General',
             rating: 5.0,
             reviews: 0,

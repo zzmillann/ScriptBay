@@ -163,6 +163,127 @@ objetoRouter.get('/MisProductos', async (req, res, next) => {
 
 });
 
+objetoRouter.post('/ActualizarProducto', async (req, res, next) => {
+
+    try {
+
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+
+        if (!token) throw new Error('No autorizado');
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+        if (authError) throw authError;
+
+        const { id, tipo, titulo, descripcion, imagen, categoria, precio, archivo, telefono, email, github, linkedin } = req.body;
+
+        if (!id) throw new Error('ID de producto requerido');
+
+        const { data: productoExistente, error: fetchError } = await supabase
+            .from('productos')
+            .select('id,user_id')
+            .eq('id', id)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        if (!productoExistente || productoExistente.user_id !== user.id) {
+            throw new Error('No tienes permisos para editar este producto');
+        }
+
+        const { error } = await supabase
+            .from('productos')
+            .update({
+                tipo,
+                titulo,
+                descripcion,
+                imagen: imagen || null,
+                categoria: categoria || null,
+                precio: precio ?? null,
+                archivo: archivo || null,
+                telefono: telefono || null,
+                email: email || null,
+                github: github || null,
+                linkedin: linkedin || null
+            })
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        res.status(200).send({
+            codigo: 0,
+            mensaje: 'Producto actualizado correctamente'
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        res.status(200).send({
+            codigo: 1,
+            mensaje: error.message
+        });
+
+    }
+
+});
+
+objetoRouter.post('/EliminarProducto', async (req, res, next) => {
+
+    try {
+
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+
+        if (!token) throw new Error('No autorizado');
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+        if (authError) throw authError;
+
+        const { id } = req.body;
+        if (!id) throw new Error('ID de producto requerido');
+
+        const { data: productoExistente, error: fetchError } = await supabase
+            .from('productos')
+            .select('id,user_id')
+            .eq('id', id)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        if (!productoExistente || productoExistente.user_id !== user.id) {
+            throw new Error('No tienes permisos para eliminar este producto');
+        }
+
+        const { error } = await supabase
+            .from('productos')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        res.status(200).send({
+            codigo: 0,
+            mensaje: 'Producto eliminado correctamente'
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        res.status(200).send({
+            codigo: 1,
+            mensaje: error.message
+        });
+
+    }
+
+});
+
 
 objetoRouter.post('/PagarProducto', async (req, res, next) => {
 
