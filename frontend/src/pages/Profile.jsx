@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, Github, Linkedin, MapPin, Move, Plus, Save, Trash2, Upload, User } from 'lucide-react';
+import { Camera, Github, Linkedin, MapPin, Move, Plus, Save, Trash2, Upload, User, Box, BriefcaseBusiness, BarChart3, TrendingUp, Pencil, Star } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { getSession, refreshSession, saveSession } from '../services/authClient.js';
+import { getSession, getValidSession, saveSession } from '../services/authClient.js';
 import { normalizeImageUrl } from '../utils/imageUrl.js';
 
 const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
@@ -46,8 +46,26 @@ const Profile = () => {
     const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
     const [misProductos, setMisProductos] = useState([]);
     const [activeSection, setActiveSection] = useState('productos');
+    const [catalogFilter, setCatalogFilter] = useState('productos');
+    const user = getSession()?.datosCliente || {};
 
-    const getActiveSession = async () => (await refreshSession()) || getSession();
+    const isServiceProduct = (product) => String(product?.tipo || '').toLowerCase() === 'servicio';
+    const publishedCount = misProductos.filter((p) => !isServiceProduct(p)).length;
+    const activeServicesCount = misProductos.filter(isServiceProduct).length;
+    const purchases = user?.totalPurchases ?? 0;
+    const salesCount = user?.totalSales ?? (publishedCount * 3);
+
+    const mockRating = 4.6;
+    const mockReviews = 12;
+    const sellerRating = user?.rating ?? mockRating;
+    const sellerReviews = user?.reviewsCount ?? mockReviews;
+    const sellerSales = salesCount;
+    const catalogItems = misProductos.filter((product) => {
+        if (catalogFilter === 'servicios') return isServiceProduct(product);
+        return !isServiceProduct(product);
+    });
+
+    const getActiveSession = async () => getValidSession();
 
     const cargarMisProductos = async () => {
         const session = await getActiveSession();
@@ -444,14 +462,66 @@ const Profile = () => {
 
                 <div className="px-6 sm:px-10 pb-10">
                     {activeSection === 'productos' && (
-                        <div className="mb-8 text-center">
-                            <div className="inline-flex items-center rounded-full border border-primary/35 bg-primary/10 px-4 py-1.5 mb-3">
-                                <span className="text-[11px] sm:text-xs uppercase tracking-[0.2em] font-semibold text-primary">Panel de vendedor</span>
+                        <div className="mb-8 sm:mb-10 rounded-3xl border border-white/[0.08] bg-[radial-gradient(ellipse_at_top_left,rgba(255,26,26,0.18),transparent_58%),linear-gradient(135deg,rgba(255,255,255,0.03),rgba(28,0,0,0.24))] backdrop-blur-sm shadow-[0_8px_32px_-8px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)] px-4 sm:px-6 py-5 sm:py-6">
+                            <div className="pointer-events-none absolute" />
+                            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-start gap-5 lg:gap-6">
+                                <div className="flex items-center gap-4 sm:gap-5">
+                                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border border-primary/35 bg-gradient-to-br from-primary/15 to-accent/10 flex items-center justify-center text-xl font-bold text-base-primary shadow-[0_10px_26px_-16px_rgba(255,26,26,0.55)]">
+                                        {avatarUrl ? (
+                                            <img
+                                                src={avatarUrl}
+                                                alt="Foto de perfil"
+                                                className="w-full h-full object-cover"
+                                                style={{ transform: `translate(${avatarOffset.x}px, ${avatarOffset.y}px)` }}
+                                            />
+                                        ) : (
+                                            <span>{getInitials(form.nombre || 'DEV RINK')}</span>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <div className="inline-flex items-center rounded-full border border-primary/35 bg-primary/10 px-3 py-1 mb-2">
+                                            <span className="text-[10px] sm:text-xs uppercase tracking-[0.2em] font-semibold text-primary">Panel de vendedor</span>
+                                        </div>
+                                        <h2 className="text-2xl sm:text-3xl font-bold text-base-primary leading-tight">{form.nombre || 'DEV-RINK'}</h2>
+                                        <p className="mt-1 text-sm font-medium text-zinc-200 dark:text-zinc-100">Automatizacion y sistemas que escalan tu negocio</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3 w-full lg:w-auto lg:min-w-[560px] lg:ml-2 lg:mr-3">
+                                    <div className="rounded-xl border border-white/[0.12] bg-white/[0.04] dark:bg-black/25 backdrop-blur-sm px-3 py-2.5 transition-all duration-300 hover:scale-[1.03] hover:border-red-500/40 hover:bg-white/5 hover:shadow-[0_8px_20px_-8px_rgba(255,26,26,0.3)] cursor-default">
+                                        <div className="flex items-center gap-2 text-faint text-xs">
+                                            <Box className="w-3.5 h-3.5 text-zinc-300" />
+                                            Productos
+                                        </div>
+                                        <p className="text-lg font-bold text-base-primary mt-1">{publishedCount}</p>
+                                        <p className="text-[11px] text-dimmed">Publicados</p>
+                                    </div>
+                                    <div className="rounded-xl border border-white/[0.12] bg-white/[0.04] dark:bg-black/25 backdrop-blur-sm px-3 py-2.5 transition-all duration-300 hover:scale-[1.03] hover:border-red-500/40 hover:bg-white/5 hover:shadow-[0_8px_20px_-8px_rgba(255,26,26,0.3)] cursor-default">
+                                        <div className="flex items-center gap-2 text-faint text-xs">
+                                            <BriefcaseBusiness className="w-3.5 h-3.5 text-zinc-300" />
+                                            Servicios
+                                        </div>
+                                        <p className="text-lg font-bold text-base-primary mt-1">{activeServicesCount}</p>
+                                        <p className="text-[11px] text-dimmed">Activos</p>
+                                    </div>
+                                    <div className="rounded-xl border border-white/[0.12] bg-white/[0.04] dark:bg-black/25 backdrop-blur-sm px-3 py-2.5 transition-all duration-300 hover:scale-[1.03] hover:border-red-500/40 hover:bg-white/5 hover:shadow-[0_8px_20px_-8px_rgba(255,26,26,0.3)] cursor-default">
+                                        <div className="flex items-center gap-2 text-faint text-xs">
+                                            <BarChart3 className="w-3.5 h-3.5 text-zinc-300" />
+                                            Compras
+                                        </div>
+                                        <p className="text-lg font-bold text-base-primary mt-1">{purchases}</p>
+                                        <p className="text-[11px] text-dimmed">Realizadas</p>
+                                    </div>
+                                    <div className="rounded-xl border border-white/[0.12] bg-white/[0.04] dark:bg-black/25 backdrop-blur-sm px-3 py-2.5 transition-all duration-300 hover:scale-[1.03] hover:border-red-500/40 hover:bg-white/5 hover:shadow-[0_8px_20px_-8px_rgba(255,26,26,0.3)] cursor-default">
+                                        <div className="flex items-center gap-2 text-faint text-xs">
+                                            <TrendingUp className="w-3.5 h-3.5 text-zinc-300" />
+                                            Ventas
+                                        </div>
+                                        <p className="text-lg font-bold text-base-primary mt-1">{sellerSales}</p>
+                                        <p className="text-[11px] text-dimmed">Totales</p>
+                                    </div>
+                                </div>
                             </div>
-                            <h2 className="text-2xl sm:text-3xl font-bold text-base-primary">Mis productos</h2>
-                            <p className="mt-2 text-sm text-subtle">
-                                {misProductos.length} {misProductos.length === 1 ? 'producto publicado' : 'productos publicados'}
-                            </p>
                         </div>
                     )}
 
@@ -595,9 +665,9 @@ const Profile = () => {
                     )}
 
                     {activeSection === 'productos' && (
-                        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top,rgba(255,26,26,0.13),transparent_45%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-6 sm:p-8 shadow-[0_24px_80px_-28px_rgba(0,0,0,0.55)]">
+                        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top,rgba(255,26,26,0.13),transparent_45%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] py-6 px-6 sm:py-7 sm:px-8 shadow-[0_24px_80px_-28px_rgba(0,0,0,0.55)]">
                             <div className="pointer-events-none absolute -top-20 -right-20 w-56 h-56 rounded-full bg-primary/10 blur-3xl" />
-                            <div className="flex flex-col items-center text-center">
+                            <div className="flex flex-col items-center text-center gap-2">
                                 <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full overflow-hidden border-[3px] border-primary/50 bg-linear-to-br from-primary to-accent text-white flex items-center justify-center text-4xl font-bold shadow-[0_20px_50px_-18px_rgba(255,26,26,0.75)]">
                                     {avatarUrl ? (
                                         <img
@@ -610,63 +680,108 @@ const Profile = () => {
                                         <span>{getInitials(form.nombre || 'Usuario')}</span>
                                     )}
                                 </div>
-                                <p className="mt-4 text-2xl sm:text-3xl font-bold text-base-primary">{form.nombre || 'Tu nombre'}</p>
-                                <p className="text-xs sm:text-sm text-subtle mt-1">Catálogo publicado</p>
+                                <p className="text-2xl sm:text-3xl font-bold text-base-primary">{form.nombre || 'Tu nombre'}</p>
+                                <p className="text-sm sm:text-base text-amber-300">⭐ {sellerRating} ({sellerReviews} valoraciones)</p>
+                                {sellerReviews > 10 && <p className="text-xs text-emerald-400">✔ Vendedor verificado</p>}
+                                <div className="mt-1 flex items-center justify-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setCatalogFilter('productos')}
+                                        className={`px-4 py-2 rounded-full text-sm font-semibold border transition-all ${catalogFilter === 'productos'
+                                            ? 'border-primary/45 bg-primary/15 text-primary shadow-[0_0_18px_rgba(255,26,26,0.2)]'
+                                            : 'border-zinc-300/70 dark:border-white/10 bg-zinc-100/85 dark:bg-white/5 text-subtle hover:border-primary/35 hover:text-primary'
+                                        }`}
+                                    >
+                                        Productos
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCatalogFilter('servicios')}
+                                        className={`px-4 py-2 rounded-full text-sm font-semibold border transition-all ${catalogFilter === 'servicios'
+                                            ? 'border-primary/45 bg-primary/15 text-primary shadow-[0_0_18px_rgba(255,26,26,0.2)]'
+                                            : 'border-zinc-300/70 dark:border-white/10 bg-zinc-100/85 dark:bg-white/5 text-subtle hover:border-primary/35 hover:text-primary'
+                                        }`}
+                                    >
+                                        Servicios
+                                    </button>
+                                </div>
                             </div>
 
-                            <div className="relative mt-7 sm:mt-9 rounded-2xl border border-zinc-300/70 dark:border-white/10 bg-white/85 dark:bg-black/30 backdrop-blur-md p-4 sm:p-6">
-                                {misProductos.length === 0 ? (
-                                    <p className="text-faint text-sm text-center">Todavía no has publicado productos.</p>
+                            <div className="relative mt-5 sm:mt-6 rounded-2xl border border-white/[0.05] bg-white/85 dark:bg-black/30 backdrop-blur-md p-4 sm:p-6 shadow-[0_0_30px_rgba(255,0,80,0.15),0_0_60px_rgba(255,0,80,0.08)] transition-all duration-300 ease-out hover:shadow-[0_0_40px_rgba(255,0,80,0.25),0_0_80px_rgba(255,0,80,0.12)]">
+                                <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_top,rgba(255,0,80,0.05),transparent_70%)]" />
+                                {catalogItems.length === 0 ? (
+                                    <p className="text-faint text-sm text-center">
+                                        {misProductos.length === 0
+                                            ? 'Todavía no has publicado productos.'
+                                            : `No hay ${catalogFilter} en tu catálogo todavía.`}
+                                    </p>
                                 ) : (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                                        {misProductos.map((product) => {
+                                    <div className={catalogItems.length === 1 ? 'max-w-md mx-auto' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'}>
+                                        {catalogItems.map((product) => {
                                             const imageUrl = normalizeImageUrl(product.imagen) || `https://picsum.photos/seed/profile-${product.id}/500/320`;
-                                            const isService = String(product.tipo || '').toLowerCase() === 'servicio';
+                                            const productType = String(product?.type ?? product?.tipo ?? '').toLowerCase();
+                                            const isService = productType === 'service' || productType === 'servicio' || isServiceProduct(product);
                                             const toneHoverClass = isService
-                                                ? 'hover:border-blue-400/45 hover:shadow-[0_12px_34px_-16px_rgba(59,130,246,0.45)]'
-                                                : 'hover:border-violet-400/45 hover:shadow-[0_12px_34px_-16px_rgba(168,85,247,0.45)]';
+                                                ? 'hover:border-blue-500/45 hover:shadow-blue-500/30'
+                                                : 'hover:border-purple-500/45 hover:shadow-purple-500/30';
+                                            const productRating = Number(product?.rating_promedio ?? product?.rating ?? 4.8);
+                                            const productReviews = Number(product?.total_resenas ?? product?.resenas ?? 12);
+                                            const productBadge = product.id % 3 === 0 ? 'Top' : 'Nuevo';
 
                                             return (
                                                 <article
                                                     key={product.id}
-                                                    className={`rounded-2xl overflow-hidden border border-zinc-300/70 dark:border-white/10 bg-white dark:bg-zinc-900/95 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.35)] transition-all duration-300 hover:-translate-y-1 ${toneHoverClass}`}
+                                                    className={`group rounded-2xl overflow-hidden border border-zinc-300/70 dark:border-white/10 bg-white dark:bg-zinc-900/95 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.35)] transition-all duration-200 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg ${toneHoverClass}`}
                                                 >
                                                     <Link to={`/producto/${product.id}`} className="block">
-                                                        <div className="relative h-36 bg-zinc-100 dark:bg-black overflow-hidden">
+                                                        <div className="relative w-full h-44 bg-zinc-100 dark:bg-black overflow-hidden rounded-t-xl">
                                                             <img
                                                                 src={imageUrl}
                                                                 alt={product.titulo || 'Producto'}
-                                                                className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                                                                className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                                                             />
-                                                            <span className="absolute top-2 right-2 rounded-full bg-black/70 text-white text-[10px] px-2 py-1 border border-white/15">
-                                                                {product.categoria || product.tipo || 'General'}
+                                                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 to-transparent" />
+                                                            <span className="absolute top-2.5 right-2.5 rounded-full bg-red-500/20 text-red-200 text-[10px] px-2 py-1 border border-red-400/35 backdrop-blur-sm">
+                                                                {productBadge}
                                                             </span>
                                                         </div>
                                                     </Link>
 
-                                                    <div className="p-3">
+                                                    <div className="px-3 py-2 flex flex-col gap-1.5">
                                                         <Link to={`/producto/${product.id}`} className="block">
-                                                            <h3 className="text-sm font-bold text-base-primary line-clamp-2 min-h-10">
+                                                            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 line-clamp-2 min-h-10">
                                                                 {product.titulo || 'Producto sin título'}
                                                             </h3>
                                                         </Link>
 
-                                                        <p className="text-primary font-bold text-base mt-1">{Number(product.precio ?? 0)}€</p>
+                                                        {product.descripcion && (
+                                                            <p className="text-xs text-zinc-500/85 dark:text-zinc-400/80 line-clamp-2">{product.descripcion}</p>
+                                                        )}
 
-                                                        <div className="grid grid-cols-2 gap-2 mt-3">
-                                                            <Link
-                                                                to={`/edit-product/${product.id}`}
-                                                                className="btn-secondary text-xs py-2 text-center"
-                                                            >
-                                                                Editar
-                                                            </Link>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleEliminarProducto(product.id)}
-                                                                className="btn-primary text-xs py-2"
-                                                            >
-                                                                Eliminar
-                                                            </button>
+                                                        <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                                                            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                                                            <span>{productRating.toFixed(1)} ({productReviews})</span>
+                                                        </div>
+
+                                                        <div className="flex items-center justify-between mt-2">
+                                                            <span className="text-xl font-semibold text-red-500 drop-shadow-[0_0_8px_rgba(255,59,59,0.35)]">{Number(product.precio ?? 0)}€</span>
+                                                            <div className="flex gap-2">
+                                                                <Link
+                                                                    to={`/edit-product/${product.id}`}
+                                                                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-400/35 bg-transparent px-2.5 py-1.5 text-[11px] font-medium text-zinc-300 hover:border-zinc-300/60 hover:text-zinc-100 transition-all duration-200"
+                                                                >
+                                                                    <Pencil className="w-3 h-3" />
+                                                                    Editar
+                                                                </Link>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleEliminarProducto(product.id)}
+                                                                    className="inline-flex items-center gap-1 rounded-lg border border-red-500/45 bg-red-500/75 px-2.5 py-1.5 text-[11px] font-medium text-white hover:bg-red-500 hover:border-red-400/75 transition-all duration-200"
+                                                                >
+                                                                    <Trash2 className="w-3 h-3" />
+                                                                    Eliminar
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </article>
