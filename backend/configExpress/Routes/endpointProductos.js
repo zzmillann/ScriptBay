@@ -325,22 +325,26 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
 
         console.log("Stage 2 completado - Card Stripe ID:", cardIdStripe);
 
-        const paymentIntentId = await stripeService.Stage3_CreateChargeForCustomer(
+        const resultadoPago = await stripeService.Stage3_CreateChargeForCustomer(
             customerIdStripe,
             cardIdStripe,
             precio,
             `Compra en ScriptBay: ${titulo}`
         );
-        if (!paymentIntentId) throw new Error('No se ha podido procesar el pago en Stripe');
+        if (!resultadoPago) throw new Error('No se ha podido procesar el pago en Stripe');
 
-        console.log("Stage 3 completado - Payment Intent ID:", paymentIntentId);
+        const { idPaymentIntent, compraBlockchain } = resultadoPago;
+
+        console.log("Stage 3 completado - Payment Intent ID:", idPaymentIntent);
+        console.log("Blockchain Hash:", compraBlockchain);
         console.log("=== PAGO COMPLETADO ===");
-        console.log("Resumen - Cliente:", user.email, "| Producto:", titulo, "| Importe:", precio, "EUR | PaymentIntent:", paymentIntentId);
+        console.log("Resumen - Cliente:", user.email, "| Producto:", titulo, "| Importe:", precio, "EUR | PaymentIntent:", idPaymentIntent);
 
         res.status(200).send({
             codigo: 0,
             mensaje: 'Pago procesado correctamente',
-            paymentIntentId
+            paymentIntentId: idPaymentIntent,
+            blockchainHash: compraBlockchain
         });
 
     } catch (error) {

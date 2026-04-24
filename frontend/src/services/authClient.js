@@ -67,3 +67,15 @@ export function clearSession() {
     window.dispatchEvent(new Event('scriptbay-auth-changed'));
     console.log('[AUTH TRACE] sesión eliminada de localStorage');
 }
+
+/**
+ * Retorna la sesión actual si es válida. 
+ * TODO: Implementar lógica de expiración de JWT y auto-refresh.
+ */
+export async function getValidSession() {
+    const session = getSession();
+    if (!session) return null;
+    
+    // De momento retornamos la sesión tal cual para evitar errores de importación.
+    return session;
+}

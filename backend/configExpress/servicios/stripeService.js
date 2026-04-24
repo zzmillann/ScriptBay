@@ -10,6 +10,10 @@
 // Authorization: Bearer ......
 
 const BASE_URL_STRIPE = "https://api.stripe.com/v1";
+import { registroCompraStripe } from "../../services/blockchainService.js";
+
+
+
 
 export default {
     Stage1_CreateCustomer: async (nombre, email) => {
@@ -100,7 +104,22 @@ export default {
             const datosPaymentIntent = await petPaymentIntent.json();
             console.log("Datos del PAYMENT INTENT creado en Stripe: ", datosPaymentIntent);
 
-            return datosPaymentIntent.id;
+
+            const fechaActual = new Date();
+            const fecha = fechaActual.getDate();
+            const hora = fechaActual.getHours();
+
+
+            const compraBlockchain = await registroCompraStripe(
+                idCustomer, idCard, importe, 'eur', descripcion, true,
+                true, 'card', true, fecha, hora, datosPaymentIntent.id
+            );
+
+            console.log("Compra Blockchain: ", compraBlockchain);
+
+            return { idPaymentIntent: datosPaymentIntent.id, compraBlockchain };
+
+
 
         } catch (error) {
             console.log("ERROR en stripeService Stage3_CreateChargeForCustomer: ", error);

@@ -13,6 +13,7 @@ import EditProduct from './pages/EditProduct';
 import ParticlesBackground from './components/ParticlesBackground';
 import ChatAssistant from './components/ChatAssistant';
 import { getSession } from './services/authClient';
+import { MyWagmiProvider } from './components/BlockchainFront/WagmiProvider';
 import './index.css';
 
 const PageShell = () => {
@@ -95,7 +96,9 @@ const PageShell = () => {
 function App() {
   return (
     <Router>
-      <PageShell />
+      <MyWagmiProvider>
+        <PageShell />
+      </MyWagmiProvider>
     </Router>
   )
 }

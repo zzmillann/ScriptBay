@@ -1,0 +1,70 @@
+GUÍA PARA PRINCIPIANTES: INTEGRACIÓN BLOCKCHAIN + STRIPE
+
+¡Hola! Qué bueno que estés empezando con Wagmi y RainbowKit. Estás usando lo mejor del ecosistema actual de Ethereum/EVMs.
+
+Para lograr que una compra en Stripe se registre en la Blockchain, necesitas entender que estás uniendo dos mundos: el Web2 (Stripe) y el Web3 (Smart Contracts).
+
+Aquí tienes los pasos lógicos para implementarlo sin volverte loco:
+
+---
+
+1. EL SMART CONTRACT (El "Libro de Registro")
+Primero necesitas un lugar en la blockchain donde guardar la información.
+- Crea un Smart Contract sencillo en Solidity.
+- Debe tener una función como `registrarCompra(address usuario, string orderId)` o similar.
+- IMPORTANTE: Esta función debe tener un control de acceso (`onlyOwner`). Solo TU backend debe poder llamar a esta función para evitar que cualquiera registre compras falsas.
+
+2. EL BACKEND (El "Puente")
+ Stripe no habla directamente con la blockchain. Necesitas un servidor (Node.js/Express) que escuche a Stripe.
+ - Implementa un "Webhook" de Stripe. Cuando Stripe confirma que el pago fue exitoso (`checkout.session.completed`), el webhook recibe la señal.
+ - En ese momento, tu backend usa una librería como 'Viem' o 'Ethers.js' para firmar una transacción hacia el Smart Contract.
+ - Necesitarás una "Admin Wallet" en el servidor con un poco de gas (ETH/MATIC) para pagar la transacción.
+
+3. EL FRONTEND (La Experiencia de Usuario)
+Aquí es donde entran Wagmi y RainbowKit.
+ - Usa RainbowKit para que el usuario conecte su wallet (MetaMask, Coinbase, etc.).
+ - Wagmi te servirá para leer datos de la blockchain (por ejemplo, mostrarle al usuario sus compras ya registradas).
+ - Flujo: El usuario conecta su wallet -> Paga con Stripe -> El backend registra la compra -> El frontend se actualiza usando Wagmi para mostrar el nuevo estado.
+
+4. PASOS A SEGUIR (Tu Roadmap de aprendizaje)
+
+Paso A: Aprende Solidity básico y despliega un contrato en una red de prueba (Testnet) como Sepolia o Amoy (Polygon). Usa herramientas como Hardhat o Foundry.
+Paso B: Configura Stripe en modo "Test". Aprende a crear un Checkout Session.
+Paso C: Crea el Webhook en tu backend. Aquí usarás una clave privada (la de tu Admin Wallet) guardada en un archivo .env. ¡NUNCA la subas a GitHub!
+Paso D: Conecta todo en el Frontend. Usa hooks de Wagmi como `useContractRead` para verificar que la compra aparece en la blockchain después de unos segundos de confirmarse el pago.
+
+5. CONSEJO DE ORO
+No intentes que el usuario firme la transacción de la compra después de pagar con Stripe. Es mejor que el SEGUNDO paso (el registro en blockchain) lo haga tu servidor automáticamente. Así el usuario solo tiene que: "Conectar Wallet" -> "Pagar con Tarjeta" -> "Recibir confirmación".
+
+HERRAMIENTAS RECOMENDADAS:
+- Smart Contracts: Solidity + Foundry (o Hardhat).
+- Red: Base o Polygon (por las comisiones bajas).
+- Backend: Node.js + Stripe SDK + Viem.
+- Frontend: Next.js + Wagmi + RainbowKit.
+
+¡Mucho ánimo con el desarrollo! Vas por muy buen camino.
+
+------------------------------------------------------------------
+ROADMAP ESPECÍFICO PARA TU PROYECTO (SCRIPTBAY)
+------------------------------------------------------------------
+
+1. FASE BLOCKCHAIN (Carpeta: scriptbay_blockchain)
+   - Crear 'src/PurchaseRegistry.sol' con lógica de 'onlyOwner'.
+   - Compilar con 'forge build'.
+   - Desplegar en Testnet (Base Sepolia o Amoy) usando un script en 'script/'.
+   - COPIAR la dirección del contrato y el ABI (está en out/PurchaseRegistry.sol/PurchaseRegistry.json).
+
+2. FASE BACKEND (Carpeta: backend)
+   - Instalar librerías: 'npm install stripe viem'.
+   - Configurar variables de entorno (.env): STRIPE_SECRET, ADMIN_PRIVATE_KEY, CONTRACT_ADDRESS.
+   - Crear el endpoint de Webhook de Stripe.
+   - Dentro del Webhook: Al detectar 'checkout.session.completed', usar Viem para llamar a 'registerPurchase' en la blockchain.
+
+3. FASE FRONTEND (Carpeta: frontend)
+   - Instalar librerías: 'npm install @rainbow-me/rainbowkit wagmi viem @tanstack/react-query'.
+   - Configurar el Setup de Wagmi y RainbowKit en 'main.jsx'.
+   - Añadir el botón de 'Connect Wallet' en el Navbar.
+   - Usar el hook 'useReadContract' para verificar en tiempo real si el usuario ya tiene su compra registrada en la blockchain.
+
+CONSEJO PARA PROBAR:
+Usa la 'Stripe CLI' para reenviar eventos de webhook a tu localhost mientras desarrollas el backend, así no tienes que hacer compras reales cada vez.

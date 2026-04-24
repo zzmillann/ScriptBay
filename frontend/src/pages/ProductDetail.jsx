@@ -38,6 +38,7 @@ const ProductDetail = () => {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [estadoPago, setEstadoPago] = useState('idle');
   const [mensajePago, setMensajePago] = useState('');
+  const [hashBlockchain, setHashBlockchain] = useState('');
 
   useEffect(() => {
     const cargarDetalle = async () => {
@@ -106,6 +107,7 @@ const ProductDetail = () => {
     setModalAbierto(false);
     setEstadoPago('idle');
     setMensajePago('');
+    setHashBlockchain('');
   };
 
   const handleConfirmarPago = async () => {
@@ -115,7 +117,9 @@ const ProductDetail = () => {
     if (resultado.codigo === 0) {
       setEstadoPago('ok');
       setMensajePago(resultado.mensaje);
+      setHashBlockchain(resultado.blockchainHash);
       console.log("[ScriptBay] Pago realizado con exito - PaymentIntent:", resultado.paymentIntentId);
+      console.log("[ScriptBay] Hash de Blockchain:", resultado.blockchainHash);
     } else {
       setEstadoPago('error');
       setMensajePago(resultado.mensaje);
@@ -379,7 +383,27 @@ const ProductDetail = () => {
                 <CheckCircle className="h-10 w-10 text-green-400" />
                 <p className="font-semibold text-green-700 dark:text-green-300">¡Pago realizado correctamente!</p>
                 <p className="text-sm text-dimmed">{mensajePago}</p>
-                <button onClick={handleCerrarModal} className="btn-secondary mt-2 px-5 py-2 text-sm">
+                
+                {hashBlockchain && (
+                  <div className="mt-4 w-full rounded-2xl border border-blue-400/30 bg-blue-500/5 p-4 text-left">
+                    <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-500">
+                      <ShieldCheck className="h-3.5 w-3.5" /> Certificado Blockchain
+                    </p>
+                    <p className="font-mono text-[10px] break-all text-blue-400/80">
+                      {hashBlockchain}
+                    </p>
+                    <a 
+                      href={`https://sepolia.etherscan.io/tx/${hashBlockchain}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 inline-block text-[11px] font-bold text-blue-500 hover:underline"
+                    >
+                      Ver en Etherscan →
+                    </a>
+                  </div>
+                )}
+
+                <button onClick={handleCerrarModal} className="btn-secondary mt-4 w-full px-5 py-2 text-sm">
                   Cerrar
                 </button>
               </div>
