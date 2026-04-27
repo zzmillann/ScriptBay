@@ -301,9 +301,9 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
         console.log("=== INICIO DE PAGO ===");
         console.log("Usuario comprador - ID:", user.id, "| Email:", user.email);
 
-        const { titulo, precio } = req.body;
+        const { titulo, precio, metodoPago } = req.body;
 
-        console.log("Producto a comprar:", titulo, "| Precio:", precio, "EUR");
+        console.log("Producto a comprar:", titulo, "| Precio:", precio, "EUR", "| Metodo de pago:", metodoPago || 'visa');
 
         const { data: perfil } = await supabase
             .from('perfiles')
@@ -320,7 +320,7 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
 
         console.log("Stage 1 completado - Customer Stripe ID:", customerIdStripe);
 
-        const cardIdStripe = await stripeService.Stage2_CreateCardForCustomer(customerIdStripe);
+        const cardIdStripe = await stripeService.Stage2_CreateCardForCustomer(customerIdStripe, metodoPago || 'visa');
         if (!cardIdStripe) throw new Error('No se ha podido crear la CARD en Stripe para el CUSTOMER');
 
         console.log("Stage 2 completado - Card Stripe ID:", cardIdStripe);

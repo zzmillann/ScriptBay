@@ -44,10 +44,17 @@ export default {
             return null;
         }
     },
-    Stage2_CreateCardForCustomer: async (idCustomer) => {
+    Stage2_CreateCardForCustomer: async (idCustomer, metodoPago) => {
         try {
+            const tokensStripe = {
+                'visa': 'tok_visa',
+                'mastercard': 'tok_mastercard',
+                'amex': 'tok_amex'
+            };
+            const tokenTarjeta = tokensStripe[metodoPago] || 'tok_visa';
+
             const datosTarjetaStripe = {
-                'source': 'tok_visa' //<----- token de prueba en modo desarrollador de Stripe para simular tarjeta Visa
+                'source': tokenTarjeta //<----- token de prueba en modo desarrollador de Stripe para simular tarjeta Visa
                 //en real (produccion) los datos de la tarjeta se pasan a stripe asi:
                 // 'source[number]': datosTarjeta.numero,
                 // 'source[exp_month]': datosTarjeta.mesExpiracion,
