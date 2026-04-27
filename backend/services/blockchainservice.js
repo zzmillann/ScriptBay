@@ -6,7 +6,8 @@ import CONTRACT_ABI from "./ComprasStripeABI.json" with { type: "json" };
 import dotenv from "dotenv"
 dotenv.config()
 
-const account = privateKeyToAccount(process.env.PRIVATE_KEY || '0x0000000000000000000000000000000000000000000000000000000000000000')
+const rawKey = process.env.PRIVATE_KEY || '0000000000000000000000000000000000000000000000000000000000000000';
+const account = privateKeyToAccount(rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`)
 
 const walletClient = createWalletClient({
     account,

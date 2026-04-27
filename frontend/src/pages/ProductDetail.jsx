@@ -39,6 +39,13 @@ const ProductDetail = () => {
   const [estadoPago, setEstadoPago] = useState('idle');
   const [mensajePago, setMensajePago] = useState('');
   const [hashBlockchain, setHashBlockchain] = useState('');
+  const [metodoPago, setMetodoPago] = useState('visa');
+
+  const tarjetasPrueba = {
+    visa: { numero: '4242 4242 4242 4242', exp: '12/34', cvc: '123', label: 'Visa' },
+    mastercard: { numero: '5555 5555 5555 4444', exp: '12/34', cvc: '123', label: 'Mastercard' },
+    amex: { numero: '3782 8224 6310 005', exp: '12/34', cvc: '1234', label: 'American Express' }
+  };
 
   useEffect(() => {
     const cargarDetalle = async () => {
@@ -108,12 +115,13 @@ const ProductDetail = () => {
     setEstadoPago('idle');
     setMensajePago('');
     setHashBlockchain('');
+    setMetodoPago('visa');
   };
 
   const handleConfirmarPago = async () => {
     setEstadoPago('cargando');
     console.log("[ScriptBay] Iniciando pago - Producto:", product.title, "| Precio:", product.price, "EUR");
-    const resultado = await postPagarProducto(product.title, product.price);
+    const resultado = await postPagarProducto(product.title, product.price, metodoPago);
     if (resultado.codigo === 0) {
       setEstadoPago('ok');
       setMensajePago(resultado.mensaje);
@@ -352,14 +360,33 @@ const ProductDetail = () => {
             <h2 className="mb-1 text-base-primary text-xl font-bold">{product.title}</h2>
             <p className="mb-6 text-base-primary text-3xl font-black">{product.price}€</p>
 
+            <div className="mb-4">
+              <p className="mb-2 text-sm font-semibold text-dimmed">Forma de pago</p>
+              <div className="flex gap-2">
+                {Object.entries(tarjetasPrueba).map(([key, val]) => (
+                  <button
+                    key={key}
+                    onClick={() => setMetodoPago(key)}
+                    className={`flex-1 rounded-xl border py-2 text-xs font-bold transition hover:scale-[1.03] active:scale-95 ${
+                      metodoPago === key
+                        ? 'border-violet-400 bg-violet-100 text-violet-700 dark:border-violet-400/70 dark:bg-violet-500/20 dark:text-violet-200'
+                        : 'border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 text-dimmed hover:border-violet-300 dark:hover:border-violet-400/40'
+                    }`}
+                  >
+                    {val.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="mb-6 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 p-4">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-dimmed">
-                <CreditCard className="h-4 w-4" /> Tarjeta de prueba Stripe
+                <CreditCard className="h-4 w-4" /> Tarjeta de prueba Stripe — {tarjetasPrueba[metodoPago].label}
               </div>
-              <p className="font-mono text-base-primary text-lg tracking-widest">4242 4242 4242 4242</p>
+              <p className="font-mono text-base-primary text-lg tracking-widest">{tarjetasPrueba[metodoPago].numero}</p>
               <div className="mt-1 flex gap-4 text-sm text-faint">
-                <span>EXP 12/34</span>
-                <span>CVC 123</span>
+                <span>EXP {tarjetasPrueba[metodoPago].exp}</span>
+                <span>CVC {tarjetasPrueba[metodoPago].cvc}</span>
               </div>
             </div>
 
