@@ -172,7 +172,7 @@ const ProductDetail = () => {
   const handleConfirmarPago = async () => {
     setEstadoPago('cargando');
     console.log("[ScriptBay] Iniciando pago - Producto:", product.title, "| Precio:", product.price, "EUR");
-    const resultado = await postPagarProducto(product.title, product.price, metodoPago);
+    const resultado = await postPagarProducto(product.title, product.price, metodoPago, product.id);
     if (resultado.codigo === 0) {
       setEstadoPago('ok');
       setMensajePago(resultado.mensaje);

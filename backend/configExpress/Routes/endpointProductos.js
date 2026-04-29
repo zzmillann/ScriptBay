@@ -326,7 +326,7 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
         console.log("=== INICIO DE PAGO ===");
         console.log("Usuario comprador - ID:", user.id, "| Email:", user.email);
 
-        const { titulo, precio, metodoPago } = req.body;
+        const { titulo, precio, metodoPago, idProducto } = req.body;
 
         console.log("Producto a comprar:", titulo, "| Precio:", precio, "EUR", "| Metodo de pago:", metodoPago || 'visa');
 
@@ -374,6 +374,19 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
         console.log("Blockchain Hash:", compraBlockchain);
         console.log("=== PAGO COMPLETADO ===");
         console.log("Resumen - Cliente:", user.email, "| Producto:", titulo, "| Importe:", precio, "EUR | PaymentIntent:", idPaymentIntent);
+
+        // Guardamos la compra en la tabla 'compras' para el historial del usuario
+        // Igual que en el proyecto de clase donde se hacia $push al array 'pedidos' del cliente en MongoDB
+        await supabase.from('compras').insert({
+            user_id: user.id,
+            producto_id: idProducto || null,
+            titulo,
+            precio,
+            metodo_pago: 'Stripe',
+            id_transaccion: idPaymentIntent,
+            blockchain_hash: compraBlockchain || null
+        });
+        console.log('Compra Stripe guardada en BD para el historial del usuario');
 
         // Generamos y enviamos la factura en PDF por email (igual que IronPDF en el proyecto de clase)
         // No bloqueamos la respuesta: si falla el email el pago ya esta procesado
@@ -473,6 +486,21 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
 
         console.log("PayPal pago capturado OK - Order ID:", orderId);
 
+        // Guardamos la compra en la tabla 'compras' para el historial del usuario
+        // Igual que en el proyecto de clase donde se hacia $push al array 'pedidos' del cliente en MongoDB
+        // idUsuario viene en el query-string del return_url que construimos al crear la orden
+        if (idUsuario) {
+            await supabase.from('compras').insert({
+                user_id: idUsuario,
+                producto_id: idProducto || null,
+                titulo: decodeURIComponent(titulo || 'Producto ScriptBay'),
+                precio: parseFloat(precio) || 0,
+                metodo_pago: 'PayPal',
+                id_transaccion: orderId
+            });
+            console.log('Compra PayPal guardada en BD para el historial del usuario');
+        }
+
         // Generamos y enviamos la factura en PDF por email (igual que IronPDF en el proyecto de clase)
         // Usamos los datos del pagador que devuelve la propia API de PayPal en la captura
         // No bloqueamos la respuesta al popup
@@ -536,6 +564,33 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
             </body>
             </html>
         `);
+    }
+});
+
+// Historial de compras del usuario autenticado
+// Igual que en el proyecto de clase donde se recuperaban los 'pedidos' del cliente desde MongoDB
+objetoRouter.get('/MisCompras', async (req, res, next) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token) throw new Error('No autorizado');
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError) throw authError;
+
+        const { data: compras, error } = await supabase
+            .from('compras')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        res.status(200).send({ codigo: 0, compras: compras || [] });
+
+    } catch (error) {
+        console.log('ERROR en /MisCompras:', error);
+        res.status(200).send({ codigo: 1, mensaje: error.message, compras: [] });
     }
 });
 
