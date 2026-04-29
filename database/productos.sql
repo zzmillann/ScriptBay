@@ -14,3 +14,7 @@ CREATE TABLE productos (
   linkedin text,
   created_at timestamptz DEFAULT now()
 );
+
+-- Columna para cachear el Stripe Customer ID en el perfil del usuario
+-- Igual que en el proyecto de clase: antes de crear un nuevo Customer comprobamos si ya tiene uno
+ALTER TABLE perfiles ADD COLUMN IF NOT EXISTS stripe_customer_id text DEFAULT NULL;

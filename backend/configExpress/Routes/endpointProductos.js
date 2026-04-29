@@ -332,7 +332,7 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
 
         const { data: perfil } = await supabase
             .from('perfiles')
-            .select('nombre')
+            .select('nombre, stripe_customer_id')
             .eq('id', user.id)
             .single();
 
@@ -340,10 +340,20 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
 
         console.log("Nombre del cliente en Stripe:", nombreCliente);
 
-        const customerIdStripe = await stripeService.Stage1_CreateCustomer(nombreCliente, user.email);
-        if (!customerIdStripe) throw new Error('No se ha podido crear el CUSTOMER en Stripe');
+        // Igual que en el proyecto de clase: reutilizamos el Customer de Stripe si ya existe
+        // para no crear un Customer nuevo en cada compra del mismo usuario
+        let customerIdStripe = perfil?.stripe_customer_id || null;
 
-        console.log("Stage 1 completado - Customer Stripe ID:", customerIdStripe);
+        if (customerIdStripe) {
+            console.log("Stage 1 omitido - reutilizando Customer Stripe existente:", customerIdStripe);
+        } else {
+            customerIdStripe = await stripeService.Stage1_CreateCustomer(nombreCliente, user.email);
+            if (!customerIdStripe) throw new Error('No se ha podido crear el CUSTOMER en Stripe');
+
+            // Guardamos el ID del Customer en el perfil para reutilizarlo en futuras compras
+            await supabase.from('perfiles').update({ stripe_customer_id: customerIdStripe }).eq('id', user.id);
+            console.log("Stage 1 completado - Customer Stripe ID guardado en perfil:", customerIdStripe);
+        }
 
         const cardIdStripe = await stripeService.Stage2_CreateCardForCustomer(customerIdStripe, metodoPago || 'visa');
         if (!cardIdStripe) throw new Error('No se ha podido crear la CARD en Stripe para el CUSTOMER');
