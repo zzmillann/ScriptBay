@@ -1,6 +1,18 @@
 import express from 'express';
+import multer from 'multer';
 import { supabase } from '../supabaseClient.js';
+import mailjetService from '../servicios/mailjetService.js';
 const objetoRouter = express.Router();
+
+// Configuracion de multer igual que en el proyecto de clase: memoria RAM y limite 5MB
+const multerMiddleware = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+});
+
+// Helper: convierte el buffer de un fichero multer a data URL
+const bufferADataUrl = (file) =>
+    `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
 objetoRouter.post('/Registro', async (req, res, next) => {
 
@@ -24,6 +36,11 @@ objetoRouter.post('/Registro', async (req, res, next) => {
                 })
 
             if (perfilError) throw perfilError //si pasa algo se lanza el error y se sale del try
+
+            // 5º enviamos email de bienvenida personalizado con Mailjet (igual que en el proyecto de clase)
+            // No bloqueamos el registro si falla el envio del email
+            // Siempre se envia al email del .env para evitar limitaciones del plan trial de Mailjet
+            await mailjetService.enviarBienvenida(process.env.MAILJET_EMAIL_FROM, nombre);
         }
 
         res.status(200).send({
@@ -143,7 +160,9 @@ objetoRouter.post('/RefreshToken', async (req, res, next) => {
     }
 });
 
-objetoRouter.post('/ActualizarPerfil', async (req, res, next) => {
+objetoRouter.post('/ActualizarPerfil',
+    multerMiddleware.fields([{ name: 'avatar', maxCount: 1 }, { name: 'banner', maxCount: 1 }]),
+    async (req, res, next) => {
     try {
 
         const authHeader = req.headers['authorization'];
@@ -157,6 +176,10 @@ objetoRouter.post('/ActualizarPerfil', async (req, res, next) => {
 
         const { nombre, titular, ubicacion, educacion, github, linkedin, avatar, banner, avatar_offset, banner_offset, banner_zoom } = req.body;
 
+        // Si llega fichero via multipart lo convertimos a data URL, si no usamos el valor de req.body
+        const avatarFinal = req.files?.avatar?.[0] ? bufferADataUrl(req.files.avatar[0]) : (avatar || undefined);
+        const bannerFinal = req.files?.banner?.[0] ? bufferADataUrl(req.files.banner[0]) : (banner || undefined);
+
         const payloadPerfil = {
             nombre,
             titular,
@@ -164,8 +187,8 @@ objetoRouter.post('/ActualizarPerfil', async (req, res, next) => {
             educacion,
             github,
             linkedin,
-            avatar,
-            banner,
+            avatar: avatarFinal,
+            banner: bannerFinal,
             avatar_offset,
             banner_offset,
             banner_zoom

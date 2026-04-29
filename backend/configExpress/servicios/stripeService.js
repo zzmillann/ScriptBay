@@ -16,11 +16,17 @@ import { registroCompraStripe } from "../../services/blockchainService.js";
 
 
 export default {
-    Stage1_CreateCustomer: async (nombre, email) => {
+    Stage1_CreateCustomer: async (nombre, email, ubicacion) => {
         try {
             const datosCliente = {
                 name: nombre,
                 email
+            }
+
+            
+            if (ubicacion) {
+                datosCliente['address[city]'] = ubicacion;
+                datosCliente['address[country]'] = 'ES';
             }
 
             const petCrearCustomer = await fetch(`${BASE_URL_STRIPE}/customers`, {

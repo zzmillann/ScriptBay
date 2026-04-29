@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, Github, Linkedin, MapPin, Move, Plus, Save, Trash2, Upload, User, Box, BriefcaseBusiness, BarChart3, TrendingUp, Pencil, Star } from 'lucide-react';
+import { Camera, Github, Linkedin, MapPin, Move, Plus, Save, Trash2, Upload, User, Box, BriefcaseBusiness, BarChart3, TrendingUp, Pencil, Star, ShoppingBag } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { getSession, getValidSession, saveSession } from '../services/authClient.js';
 import { normalizeImageUrl } from '../utils/imageUrl.js';
@@ -45,6 +45,7 @@ const Profile = () => {
     const [isDraggingBanner, setIsDraggingBanner] = useState(false);
     const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
     const [misProductos, setMisProductos] = useState([]);
+    const [misCompras, setMisCompras] = useState([]);
     const [activeSection, setActiveSection] = useState('productos');
     const [catalogFilter, setCatalogFilter] = useState('productos');
     const user = getSession()?.datosCliente || {};
@@ -66,6 +67,21 @@ const Profile = () => {
     });
 
     const getActiveSession = async () => getValidSession();
+
+    const cargarMisCompras = async () => {
+        const session = await getActiveSession();
+        if (!session?.accessToken) return;
+
+        try {
+            const response = await fetch('http://localhost:3000/api/productos/MisCompras', {
+                headers: { Authorization: `Bearer ${session.accessToken}` }
+            });
+            const data = await parseApiResponse(response, 'No se pudieron cargar tus compras');
+            if (data.codigo === 0) setMisCompras(data.compras || []);
+        } catch (error) {
+            console.log(error);
+        }
+    };
 
     const cargarMisProductos = async () => {
         const session = await getActiveSession();
@@ -109,11 +125,12 @@ const Profile = () => {
         }
 
         cargarMisProductos();
+        cargarMisCompras();
     }, []);
 
     useEffect(() => {
         const tab = new URLSearchParams(location.search).get('tab');
-        if (tab === 'editar' || tab === 'productos') {
+        if (tab === 'editar' || tab === 'productos' || tab === 'compras') {
             setActiveSection(tab);
         }
     }, [location.search]);
@@ -461,6 +478,27 @@ const Profile = () => {
                 )}
 
                 <div className="px-6 sm:px-10 pb-10">
+                    {/* Barra de navegacion entre secciones del perfil */}
+                    <div className="flex gap-2 mb-6 border-b border-zinc-200 dark:border-white/10">
+                        {[
+                            { key: 'productos', label: 'Mis publicaciones', icon: <Box className="w-4 h-4" /> },
+                            { key: 'compras',   label: 'Mis compras',       icon: <ShoppingBag className="w-4 h-4" /> },
+                            { key: 'editar',    label: 'Editar perfil',     icon: <Pencil className="w-4 h-4" /> }
+                        ].map(({ key, label, icon }) => (
+                            <button
+                                key={key}
+                                type="button"
+                                onClick={() => setActiveSection(key)}
+                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all duration-200 -mb-px ${
+                                    activeSection === key
+                                        ? 'border-primary text-primary'
+                                        : 'border-transparent text-subtle hover:text-base-primary hover:border-zinc-400 dark:hover:border-white/30'
+                                }`}
+                            >
+                                {icon}{label}
+                            </button>
+                        ))}
+                    </div>
                     {activeSection === 'productos' && (
                         <div className="mb-8 sm:mb-10 rounded-3xl border border-white/[0.08] bg-[radial-gradient(ellipse_at_top_left,rgba(255,26,26,0.18),transparent_58%),linear-gradient(135deg,rgba(255,255,255,0.03),rgba(28,0,0,0.24))] backdrop-blur-sm shadow-[0_8px_32px_-8px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)] px-4 sm:px-6 py-5 sm:py-6">
                             <div className="pointer-events-none absolute" />
@@ -790,6 +828,44 @@ const Profile = () => {
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    )}
+                    {activeSection === 'compras' && (
+                        <div>
+                            <h2 className="text-xl font-bold mb-5 flex items-center gap-2">
+                                <ShoppingBag className="w-5 h-5 text-primary" /> Mis compras
+                            </h2>
+
+                            {misCompras.length === 0 ? (
+                                <div className="text-center py-16 text-faint">
+                                    <ShoppingBag className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                                    <p className="text-base">Todavía no has realizado ninguna compra.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {misCompras.map((compra) => (
+                                        <div
+                                            key={compra.id}
+                                            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4"
+                                        >
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-base-primary truncate">{compra.titulo}</p>
+                                                <p className="text-xs text-dimmed mt-0.5">
+                                                    {new Date(compra.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    {' · '}{compra.metodo_pago}
+                                                    {' · '}<span className="font-mono text-zinc-400">{compra.id_transaccion?.slice(-10)}</span>
+                                                </p>
+                                                {compra.blockchain_hash && (
+                                                    <p className="text-[11px] text-emerald-400 mt-0.5 truncate">
+                                                        ⛓ {compra.blockchain_hash.slice(0, 20)}…
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <span className="text-xl font-bold text-primary shrink-0">{Number(compra.precio)}€</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
