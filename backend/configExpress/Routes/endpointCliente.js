@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { supabase } from '../supabaseClient.js';
+import mailjetService from '../servicios/mailjetService.js';
 const objetoRouter = express.Router();
 
 // Configuracion de multer igual que en el proyecto de clase: memoria RAM y limite 5MB
@@ -35,6 +36,10 @@ objetoRouter.post('/Registro', async (req, res, next) => {
                 })
 
             if (perfilError) throw perfilError //si pasa algo se lanza el error y se sale del try
+
+            // 5º enviamos email de bienvenida personalizado con Mailjet (igual que en el proyecto de clase)
+            // No bloqueamos el registro si falla el envio del email
+            await mailjetService.enviarBienvenida(email, nombre);
         }
 
         res.status(200).send({
