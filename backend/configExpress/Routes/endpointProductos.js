@@ -332,7 +332,7 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
 
         const { data: perfil } = await supabase
             .from('perfiles')
-            .select('nombre, stripe_customer_id')
+            .select('nombre, ubicacion, stripe_customer_id')
             .eq('id', user.id)
             .single();
 
@@ -347,7 +347,7 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
         if (customerIdStripe) {
             console.log("Stage 1 omitido - reutilizando Customer Stripe existente:", customerIdStripe);
         } else {
-            customerIdStripe = await stripeService.Stage1_CreateCustomer(nombreCliente, user.email);
+            customerIdStripe = await stripeService.Stage1_CreateCustomer(nombreCliente, user.email, perfil?.ubicacion);
             if (!customerIdStripe) throw new Error('No se ha podido crear el CUSTOMER en Stripe');
 
             // Guardamos el ID del Customer en el perfil para reutilizarlo en futuras compras
