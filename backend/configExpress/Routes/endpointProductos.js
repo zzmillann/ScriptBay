@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import { supabase } from '../supabaseClient.js';
 import stripeService from '../servicios/stripeService.js';
+import paypalService from '../servicios/paypalService.js';
 const objetoRouter = express.Router();
 
 // Configuracion de multer igual que en el proyecto de clase: memoria RAM y limite 5MB
@@ -381,5 +382,109 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
     }
 
 });
+
+// ─── PAYPAL ──────────────────────────────────────────────────────────────────
+
+// 1º PASO: el frontend llama a este endpoint para iniciar el pago con PayPal
+// Devuelve la URL de aprobacion de PayPal que el frontend abre en un popup
+objetoRouter.post('/IniciarPagoPayPal', async (req, res, next) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token) throw new Error('No autorizado');
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError) throw authError;
+
+        const { idProducto, titulo, precio } = req.body;
+        if (!idProducto || !titulo || precio === undefined) throw new Error('Faltan datos del producto');
+
+        console.log("=== INICIO DE PAGO PAYPAL ===");
+        console.log("Usuario:", user.email, "| Producto:", titulo, "| Precio:", precio, "EUR");
+
+        // Stage 1: crear la orden en PayPal
+        const order = await paypalService.Stage1_createOrderPayPal(user.id, idProducto, titulo, precio);
+        if (!order) throw new Error('No se ha podido crear la orden de pago en PayPal');
+
+        // Buscamos el link de aprobacion que PayPal devuelve en el array links
+        const urlAprobacion = order.links.find(link => link.rel === 'approve')?.href;
+        if (!urlAprobacion) throw new Error('PayPal no devolvio URL de aprobacion');
+
+        console.log("PayPal Order ID:", order.id, "| URL aprobacion:", urlAprobacion);
+
+        res.status(200).send({
+            codigo: 0,
+            mensaje: 'Orden PayPal creada correctamente',
+            orderId: order.id,
+            urlAprobacion
+        });
+
+    } catch (error) {
+        console.log('ERROR en /IniciarPagoPayPal:', error);
+        res.status(200).send({ codigo: 1, mensaje: error.message });
+    }
+});
+
+// 2º PASO: PayPal redirige aqui tras aprobacion o cancelacion del usuario en el popup
+// Captura el pago y usa postMessage para comunicar el resultado a la ventana padre
+// (tecnica del proyecto de clase: el popup se cierra solo y avisa al padre)
+objetoRouter.get('/PaypalCallback', async (req, res, next) => {
+    try {
+        const { idUsuario, idProducto, titulo, precio, token: orderId, cancel } = req.query;
+
+        console.log("=== PAYPAL CALLBACK ===", req.query);
+
+        // Si el usuario cancelo en PayPal
+        if (cancel === 'true') throw new Error('El usuario ha cancelado el pago en PayPal');
+        if (!orderId) throw new Error('No se recibio el token (orderId) de PayPal en el callback');
+
+        // Stage 2: capturamos el pago
+        const capturaResult = await paypalService.Stage2_captureOrderPayPal(orderId);
+        if (!capturaResult) throw new Error('No se pudo capturar la orden de PayPal');
+        if (capturaResult.status !== 'COMPLETED') throw new Error(`Pago no completado. Estado: ${capturaResult.status}`);
+
+        console.log("PayPal pago capturado OK - Order ID:", orderId);
+
+        // Enviamos HTML con JS al popup para que se cierre y notifique al padre
+        // (misma tecnica que en el proyecto de clase con window.opener.postMessage)
+        res.status(200).send(`
+            <!DOCTYPE html>
+            <html>
+            <body>
+                <script>
+                    window.opener.postMessage({
+                        tipo: 'PAYPAL_OK',
+                        idProducto: '${idProducto}',
+                        orderId: '${orderId}',
+                        captureResult: ${JSON.stringify(capturaResult)}
+                    }, '*');
+                    window.close();
+                </script>
+            </body>
+            </html>
+        `);
+
+    } catch (error) {
+        console.log('ERROR en /PaypalCallback:', error);
+
+        // Aunque haya error seguimos usando postMessage para avisar al padre
+        res.status(200).send(`
+            <!DOCTYPE html>
+            <html>
+            <body>
+                <script>
+                    window.opener.postMessage({
+                        tipo: 'PAYPAL_ERROR',
+                        error: '${error.message.replace(/'/g, "\\'")}'
+                    }, '*');
+                    window.close();
+                </script>
+            </body>
+            </html>
+        `);
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default objetoRouter;

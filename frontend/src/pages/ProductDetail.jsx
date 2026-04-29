@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import { getProductById, getRelatedProducts } from '../data/products';
 import { postPagarProducto } from '../services/stripeClient';
+import { postIniciarPagoPayPal } from '../services/paypalClient';
 import { getSession } from '../services/authClient';
 import { normalizeImageUrl } from '../utils/imageUrl';
 
@@ -40,6 +41,7 @@ const ProductDetail = () => {
   const [mensajePago, setMensajePago] = useState('');
   const [hashBlockchain, setHashBlockchain] = useState('');
   const [metodoPago, setMetodoPago] = useState('visa');
+  const [tipoPago, setTipoPago] = useState('stripe'); // 'stripe' | 'paypal'
 
   const tarjetasPrueba = {
     visa: { numero: '4242 4242 4242 4242', exp: '12/34', cvc: '123', label: 'Visa' },
@@ -116,6 +118,43 @@ const ProductDetail = () => {
     setMensajePago('');
     setHashBlockchain('');
     setMetodoPago('visa');
+    setTipoPago('stripe');
+  };
+
+  // Flujo PayPal: crea la orden en el backend, abre popup y espera postMessage (tecnica del proyecto de clase)
+  const handleConfirmarPagoPayPal = async () => {
+    setEstadoPago('cargando');
+    console.log('[ScriptBay] Iniciando pago PayPal - Producto:', product.title, '| Precio:', product.price, 'EUR');
+
+    const resultado = await postIniciarPagoPayPal(product.id, product.title, product.price);
+    if (resultado.codigo !== 0) {
+      setEstadoPago('error');
+      setMensajePago(resultado.mensaje);
+      return;
+    }
+
+    const popup = window.open(resultado.urlAprobacion, 'paypal_popup', 'width=600,height=700,scrollbars=yes');
+    if (!popup) {
+      setEstadoPago('error');
+      setMensajePago('El navegador bloqueó el popup de PayPal. Permite los popups para este sitio e inténtalo de nuevo.');
+      return;
+    }
+
+    // Escuchamos el postMessage que manda el popup al cerrarse (misma tecnica que en el proyecto de clase)
+    const onMessage = (event) => {
+      if (event.data?.tipo === 'PAYPAL_OK') {
+        window.removeEventListener('message', onMessage);
+        setEstadoPago('ok');
+        setMensajePago('¡Pago con PayPal realizado correctamente!');
+        console.log('[ScriptBay] PayPal pago OK - Order ID:', event.data.orderId);
+      } else if (event.data?.tipo === 'PAYPAL_ERROR') {
+        window.removeEventListener('message', onMessage);
+        setEstadoPago('error');
+        setMensajePago(event.data.error || 'Error al procesar el pago con PayPal');
+        console.log('[ScriptBay] PayPal pago ERROR:', event.data.error);
+      }
+    };
+    window.addEventListener('message', onMessage);
   };
 
   const handleConfirmarPago = async () => {
@@ -360,42 +399,92 @@ const ProductDetail = () => {
             <h2 className="mb-1 text-base-primary text-xl font-bold">{product.title}</h2>
             <p className="mb-6 text-base-primary text-3xl font-black">{product.price}€</p>
 
+            {/* Selector de pasarela de pago */}
             <div className="mb-4">
               <p className="mb-2 text-sm font-semibold text-dimmed">Forma de pago</p>
-              <div className="flex gap-2">
-                {Object.entries(tarjetasPrueba).map(([key, val]) => (
-                  <button
-                    key={key}
-                    onClick={() => setMetodoPago(key)}
-                    className={`flex-1 rounded-xl border py-2 text-xs font-bold transition hover:scale-[1.03] active:scale-95 ${
-                      metodoPago === key
-                        ? 'border-violet-400 bg-violet-100 text-violet-700 dark:border-violet-400/70 dark:bg-violet-500/20 dark:text-violet-200'
-                        : 'border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 text-dimmed hover:border-violet-300 dark:hover:border-violet-400/40'
-                    }`}
-                  >
-                    {val.label}
-                  </button>
-                ))}
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setTipoPago('stripe')}
+                  className={`flex-1 rounded-xl border py-2 text-xs font-bold transition hover:scale-[1.03] active:scale-95 ${
+                    tipoPago === 'stripe'
+                      ? 'border-violet-400 bg-violet-100 text-violet-700 dark:border-violet-400/70 dark:bg-violet-500/20 dark:text-violet-200'
+                      : 'border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 text-dimmed hover:border-violet-300 dark:hover:border-violet-400/40'
+                  }`}
+                >
+                  💳 Tarjeta
+                </button>
+                <button
+                  onClick={() => setTipoPago('paypal')}
+                  className={`flex-1 rounded-xl border py-2 text-xs font-bold transition hover:scale-[1.03] active:scale-95 ${
+                    tipoPago === 'paypal'
+                      ? 'border-blue-400 bg-blue-100 text-blue-700 dark:border-blue-400/70 dark:bg-blue-500/20 dark:text-blue-200'
+                      : 'border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 text-dimmed hover:border-blue-300 dark:hover:border-blue-400/40'
+                  }`}
+                >
+                  🅿️ PayPal
+                </button>
               </div>
+
+              {/* Subtabs de tarjeta solo cuando tipoPago es stripe */}
+              {tipoPago === 'stripe' && (
+                <div className="flex gap-2">
+                  {Object.entries(tarjetasPrueba).map(([key, val]) => (
+                    <button
+                      key={key}
+                      onClick={() => setMetodoPago(key)}
+                      className={`flex-1 rounded-xl border py-2 text-xs font-bold transition hover:scale-[1.03] active:scale-95 ${
+                        metodoPago === key
+                          ? 'border-violet-400 bg-violet-100 text-violet-700 dark:border-violet-400/70 dark:bg-violet-500/20 dark:text-violet-200'
+                          : 'border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 text-dimmed hover:border-violet-300 dark:hover:border-violet-400/40'
+                      }`}
+                    >
+                      {val.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="mb-6 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 p-4">
-              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-dimmed">
-                <CreditCard className="h-4 w-4" /> Tarjeta de prueba Stripe — {tarjetasPrueba[metodoPago].label}
+            {/* Detalle de tarjeta Stripe */}
+            {tipoPago === 'stripe' && (
+              <div className="mb-6 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 p-4">
+                <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-dimmed">
+                  <CreditCard className="h-4 w-4" /> Tarjeta de prueba Stripe — {tarjetasPrueba[metodoPago].label}
+                </div>
+                <p className="font-mono text-base-primary text-lg tracking-widest">{tarjetasPrueba[metodoPago].numero}</p>
+                <div className="mt-1 flex gap-4 text-sm text-faint">
+                  <span>EXP {tarjetasPrueba[metodoPago].exp}</span>
+                  <span>CVC {tarjetasPrueba[metodoPago].cvc}</span>
+                </div>
               </div>
-              <p className="font-mono text-base-primary text-lg tracking-widest">{tarjetasPrueba[metodoPago].numero}</p>
-              <div className="mt-1 flex gap-4 text-sm text-faint">
-                <span>EXP {tarjetasPrueba[metodoPago].exp}</span>
-                <span>CVC {tarjetasPrueba[metodoPago].cvc}</span>
+            )}
+
+            {/* Info PayPal sandbox */}
+            {tipoPago === 'paypal' && (
+              <div className="mb-6 rounded-2xl border border-blue-400/30 bg-blue-500/5 p-4">
+                <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-300">
+                  🅿️ PayPal Sandbox
+                </div>
+                <p className="text-sm text-dimmed leading-relaxed">
+                  Se abrirá una ventana de PayPal para completar el pago de forma segura.
+                  Usa una cuenta de <span className="font-semibold text-blue-500">PayPal sandbox</span> para probar.
+                </p>
+                <p className="mt-2 text-xs text-faint">
+                  Crea cuentas de prueba en <span className="font-mono">developer.paypal.com → Sandbox → Accounts</span>
+                </p>
               </div>
-            </div>
+            )}
 
             {estadoPago === 'idle' && (
               <button
-                onClick={handleConfirmarPago}
-                className="w-full rounded-2xl border border-violet-400/35 bg-violet-100 dark:bg-violet-600/20 py-3 font-bold text-violet-700 dark:text-white transition hover:bg-violet-200 dark:hover:bg-violet-600/35 hover:scale-[1.02] active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/50"
+                onClick={tipoPago === 'paypal' ? handleConfirmarPagoPayPal : handleConfirmarPago}
+                className={`w-full rounded-2xl border py-3 font-bold transition hover:scale-[1.02] active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 ${
+                  tipoPago === 'paypal'
+                    ? 'border-blue-400/35 bg-blue-100 dark:bg-blue-600/20 text-blue-700 dark:text-white hover:bg-blue-200 dark:hover:bg-blue-600/35 focus-visible:ring-blue-400/50'
+                    : 'border-violet-400/35 bg-violet-100 dark:bg-violet-600/20 text-violet-700 dark:text-white hover:bg-violet-200 dark:hover:bg-violet-600/35 focus-visible:ring-primary/50'
+                }`}
               >
-                Confirmar Pago
+                {tipoPago === 'paypal' ? '🅿️ Pagar con PayPal' : 'Confirmar Pago'}
               </button>
             )}
 
