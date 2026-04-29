@@ -39,7 +39,8 @@ objetoRouter.post('/Registro', async (req, res, next) => {
 
             // 5º enviamos email de bienvenida personalizado con Mailjet (igual que en el proyecto de clase)
             // No bloqueamos el registro si falla el envio del email
-            await mailjetService.enviarBienvenida(email, nombre);
+            // Siempre se envia al email del .env para evitar limitaciones del plan trial de Mailjet
+            await mailjetService.enviarBienvenida(process.env.MAILJET_EMAIL_FROM, nombre);
         }
 
         res.status(200).send({
