@@ -7,7 +7,6 @@ import { generarFacturaPDF } from '../servicios/facturaService.js';
 import mailjetService from '../servicios/mailjetService.js';
 const objetoRouter = express.Router();
 
-// Configuracion de multer igual que en el proyecto de clase: memoria RAM y limite 5MB
 const multerMiddleware = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 } // 5MB
@@ -340,8 +339,6 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
 
         console.log("Nombre del cliente en Stripe:", nombreCliente);
 
-        // Igual que en el proyecto de clase: reutilizamos el Customer de Stripe si ya existe
-        // para no crear un Customer nuevo en cada compra del mismo usuario
         let customerIdStripe = perfil?.stripe_customer_id || null;
 
         if (customerIdStripe) {
@@ -375,8 +372,6 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
         console.log("=== PAGO COMPLETADO ===");
         console.log("Resumen - Cliente:", user.email, "| Producto:", titulo, "| Importe:", precio, "EUR | PaymentIntent:", idPaymentIntent);
 
-        // Guardamos la compra en la tabla 'compras' para el historial del usuario
-        // Igual que en el proyecto de clase donde se hacia $push al array 'pedidos' del cliente en MongoDB
         await supabase.from('compras').insert({
             user_id: user.id,
             producto_id: idProducto || null,
@@ -388,8 +383,6 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
         });
         console.log('Compra Stripe guardada en BD para el historial del usuario');
 
-        // Generamos y enviamos la factura en PDF por email (igual que IronPDF en el proyecto de clase)
-        // No bloqueamos la respuesta: si falla el email el pago ya esta procesado
         const fechaPago = new Date();
         const numFactura = `SB-${fechaPago.getFullYear()}${String(fechaPago.getMonth() + 1).padStart(2, '0')}${String(fechaPago.getDate()).padStart(2, '0')}-${idPaymentIntent.slice(-6).toUpperCase()}`;
         generarFacturaPDF({
@@ -426,8 +419,6 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
 
 // ─── PAYPAL ──────────────────────────────────────────────────────────────────
 
-// 1º PASO: el frontend llama a este endpoint para iniciar el pago con PayPal
-// Devuelve la URL de aprobacion de PayPal que el frontend abre en un popup
 objetoRouter.post('/IniciarPagoPayPal', async (req, res, next) => {
     try {
         const authHeader = req.headers['authorization'];
@@ -466,9 +457,6 @@ objetoRouter.post('/IniciarPagoPayPal', async (req, res, next) => {
     }
 });
 
-// 2º PASO: PayPal redirige aqui tras aprobacion o cancelacion del usuario en el popup
-// Captura el pago y usa postMessage para comunicar el resultado a la ventana padre
-// (tecnica del proyecto de clase: el popup se cierra solo y avisa al padre)
 objetoRouter.get('/PaypalCallback', async (req, res, next) => {
     try {
         const { idUsuario, idProducto, titulo, precio, token: orderId, cancel } = req.query;
@@ -486,9 +474,6 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
 
         console.log("PayPal pago capturado OK - Order ID:", orderId);
 
-        // Guardamos la compra en la tabla 'compras' para el historial del usuario
-        // Igual que en el proyecto de clase donde se hacia $push al array 'pedidos' del cliente en MongoDB
-        // idUsuario viene en el query-string del return_url que construimos al crear la orden
         if (idUsuario) {
             await supabase.from('compras').insert({
                 user_id: idUsuario,
@@ -501,9 +486,6 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
             console.log('Compra PayPal guardada en BD para el historial del usuario');
         }
 
-        // Generamos y enviamos la factura en PDF por email (igual que IronPDF en el proyecto de clase)
-        // Usamos los datos del pagador que devuelve la propia API de PayPal en la captura
-        // No bloqueamos la respuesta al popup
         const emailPayPal = capturaResult?.payer?.email_address || null;
         const nombrePayPal = `${capturaResult?.payer?.name?.given_name || ''} ${capturaResult?.payer?.name?.surname || ''}`.trim() || emailPayPal;
         if (emailPayPal) {
@@ -521,9 +503,6 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
               .catch(err => console.log('[Factura] Error generando/enviando factura PayPal:', err));
         }
 
-        // Enviamos HTML con JS al popup para que se cierre y notifique al padre
-        // (misma tecnica que en el proyecto de clase con window.opener.postMessage)
-        // IMPORTANTE: siempre comprobar window.opener antes de usarlo por si el popup queda huerfano
         res.status(200).send(`
             <!DOCTYPE html>
             <html>
@@ -546,8 +525,6 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
     } catch (error) {
         console.log('ERROR en /PaypalCallback:', error);
 
-        // Aunque haya error seguimos usando postMessage para avisar al padre
-        // IMPORTANTE: siempre comprobar window.opener antes de usarlo por si el popup queda huerfano
         res.status(200).send(`
             <!DOCTYPE html>
             <html>
@@ -567,8 +544,6 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
     }
 });
 
-// Historial de compras del usuario autenticado
-// Igual que en el proyecto de clase donde se recuperaban los 'pedidos' del cliente desde MongoDB
 objetoRouter.get('/MisCompras', async (req, res, next) => {
     try {
         const authHeader = req.headers['authorization'];
