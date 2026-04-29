@@ -1,9 +1,22 @@
 import express from 'express';
+import multer from 'multer';
 import { supabase } from '../supabaseClient.js';
 import stripeService from '../servicios/stripeService.js';
 const objetoRouter = express.Router();
 
-objetoRouter.post('/GuardarProducto', async (req, res, next) => {
+// Configuracion de multer igual que en el proyecto de clase: memoria RAM y limite 5MB
+const multerMiddleware = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+});
+
+// Helper: convierte el buffer de un fichero multer a data URL
+const bufferADataUrl = (file) =>
+    `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+
+objetoRouter.post('/GuardarProducto',
+    multerMiddleware.fields([{ name: 'imagen', maxCount: 1 }, { name: 'archivo', maxCount: 1 }]),
+    async (req, res, next) => {
 
     try {
 
@@ -18,6 +31,10 @@ objetoRouter.post('/GuardarProducto', async (req, res, next) => {
 
         const { tipo, titulo, descripcion, imagen, categoria, precio, archivo, telefono, email, github, linkedin } = req.body;
 
+        // Si llega fichero via multipart lo convertimos a data URL, si no usamos el valor de req.body (base64 o null)
+        const imagenFinal = req.files?.imagen?.[0] ? bufferADataUrl(req.files.imagen[0]) : (imagen || null);
+        const archivoFinal = req.files?.archivo?.[0] ? bufferADataUrl(req.files.archivo[0]) : (archivo || null);
+
         const { error } = await supabase
             .from('productos')
             .insert({
@@ -25,10 +42,10 @@ objetoRouter.post('/GuardarProducto', async (req, res, next) => {
                 tipo,
                 titulo,
                 descripcion,
-                imagen: imagen || null,
+                imagen: imagenFinal,
                 categoria: categoria || null,
                 precio: precio ?? null,
-                archivo: archivo || null,
+                archivo: archivoFinal,
                 telefono: telefono || null,
                 email: email || null,
                 github: github || null,
@@ -163,7 +180,9 @@ objetoRouter.get('/MisProductos', async (req, res, next) => {
 
 });
 
-objetoRouter.post('/ActualizarProducto', async (req, res, next) => {
+objetoRouter.post('/ActualizarProducto',
+    multerMiddleware.fields([{ name: 'imagen', maxCount: 1 }, { name: 'archivo', maxCount: 1 }]),
+    async (req, res, next) => {
 
     try {
 
@@ -192,16 +211,19 @@ objetoRouter.post('/ActualizarProducto', async (req, res, next) => {
             throw new Error('No tienes permisos para editar este producto');
         }
 
+        const imagenFinal = req.files?.imagen?.[0] ? bufferADataUrl(req.files.imagen[0]) : (imagen || null);
+        const archivoFinal = req.files?.archivo?.[0] ? bufferADataUrl(req.files.archivo[0]) : (archivo || null);
+
         const { error } = await supabase
             .from('productos')
             .update({
                 tipo,
                 titulo,
                 descripcion,
-                imagen: imagen || null,
+                imagen: imagenFinal,
                 categoria: categoria || null,
                 precio: precio ?? null,
-                archivo: archivo || null,
+                archivo: archivoFinal,
                 telefono: telefono || null,
                 email: email || null,
                 github: github || null,
