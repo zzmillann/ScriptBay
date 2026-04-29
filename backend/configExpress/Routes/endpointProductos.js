@@ -3,6 +3,8 @@ import multer from 'multer';
 import { supabase } from '../supabaseClient.js';
 import stripeService from '../servicios/stripeService.js';
 import paypalService from '../servicios/paypalService.js';
+import { generarFacturaPDF } from '../servicios/facturaService.js';
+import mailjetService from '../servicios/mailjetService.js';
 const objetoRouter = express.Router();
 
 // Configuracion de multer igual que en el proyecto de clase: memoria RAM y limite 5MB
@@ -363,6 +365,22 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
         console.log("=== PAGO COMPLETADO ===");
         console.log("Resumen - Cliente:", user.email, "| Producto:", titulo, "| Importe:", precio, "EUR | PaymentIntent:", idPaymentIntent);
 
+        // Generamos y enviamos la factura en PDF por email (igual que IronPDF en el proyecto de clase)
+        // No bloqueamos la respuesta: si falla el email el pago ya esta procesado
+        const fechaPago = new Date();
+        const numFactura = `SB-${fechaPago.getFullYear()}${String(fechaPago.getMonth() + 1).padStart(2, '0')}${String(fechaPago.getDate()).padStart(2, '0')}-${idPaymentIntent.slice(-6).toUpperCase()}`;
+        generarFacturaPDF({
+            nombre: nombreCliente,
+            email: user.email,
+            titulo,
+            precio,
+            idTransaccion: idPaymentIntent,
+            metodoPago: 'Stripe',
+            fecha: fechaPago,
+            blockchainHash: compraBlockchain || null
+        }).then(pdfBuffer => mailjetService.enviarFactura(process.env.MAILJET_EMAIL_FROM, nombreCliente, pdfBuffer, numFactura))
+          .catch(err => console.log('[Factura] Error generando/enviando factura Stripe:', err));
+
         res.status(200).send({
             codigo: 0,
             mensaje: 'Pago procesado correctamente',
@@ -444,6 +462,26 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
         if (capturaResult.status !== 'COMPLETED') throw new Error(`Pago no completado. Estado: ${capturaResult.status}`);
 
         console.log("PayPal pago capturado OK - Order ID:", orderId);
+
+        // Generamos y enviamos la factura en PDF por email (igual que IronPDF en el proyecto de clase)
+        // Usamos los datos del pagador que devuelve la propia API de PayPal en la captura
+        // No bloqueamos la respuesta al popup
+        const emailPayPal = capturaResult?.payer?.email_address || null;
+        const nombrePayPal = `${capturaResult?.payer?.name?.given_name || ''} ${capturaResult?.payer?.name?.surname || ''}`.trim() || emailPayPal;
+        if (emailPayPal) {
+            const fechaPayPal = new Date();
+            const numFacturaPayPal = `SB-${fechaPayPal.getFullYear()}${String(fechaPayPal.getMonth() + 1).padStart(2, '0')}${String(fechaPayPal.getDate()).padStart(2, '0')}-${orderId.slice(-6).toUpperCase()}`;
+            generarFacturaPDF({
+                nombre: nombrePayPal,
+                email: emailPayPal,
+                titulo: decodeURIComponent(titulo || 'Producto ScriptBay'),
+                precio: precio || '0',
+                idTransaccion: orderId,
+                metodoPago: 'PayPal',
+                fecha: fechaPayPal
+            }).then(pdfBuffer => mailjetService.enviarFactura(process.env.MAILJET_EMAIL_FROM, nombrePayPal, pdfBuffer, numFacturaPayPal))
+              .catch(err => console.log('[Factura] Error generando/enviando factura PayPal:', err));
+        }
 
         // Enviamos HTML con JS al popup para que se cierre y notifique al padre
         // (misma tecnica que en el proyecto de clase con window.opener.postMessage)
