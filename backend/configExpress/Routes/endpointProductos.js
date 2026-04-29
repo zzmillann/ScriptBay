@@ -447,19 +447,22 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
 
         // Enviamos HTML con JS al popup para que se cierre y notifique al padre
         // (misma tecnica que en el proyecto de clase con window.opener.postMessage)
+        // IMPORTANTE: siempre comprobar window.opener antes de usarlo por si el popup queda huerfano
         res.status(200).send(`
             <!DOCTYPE html>
             <html>
             <body>
                 <script>
-                    window.opener.postMessage({
-                        tipo: 'PAYPAL_OK',
-                        idProducto: '${idProducto}',
-                        orderId: '${orderId}',
-                        captureResult: ${JSON.stringify(capturaResult)}
-                    }, '*');
+                    if (window.opener) {
+                        window.opener.postMessage({
+                            tipo: 'PAYPAL_OK',
+                            idProducto: '${idProducto}',
+                            orderId: '${orderId}',
+                            captureResult: ${JSON.stringify(capturaResult)}
+                        }, '*');
+                    }
                     window.close();
-                </script>
+                <\/script>
             </body>
             </html>
         `);
@@ -468,17 +471,20 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
         console.log('ERROR en /PaypalCallback:', error);
 
         // Aunque haya error seguimos usando postMessage para avisar al padre
+        // IMPORTANTE: siempre comprobar window.opener antes de usarlo por si el popup queda huerfano
         res.status(200).send(`
             <!DOCTYPE html>
             <html>
             <body>
                 <script>
-                    window.opener.postMessage({
-                        tipo: 'PAYPAL_ERROR',
-                        error: '${error.message.replace(/'/g, "\\'")}'
-                    }, '*');
+                    if (window.opener) {
+                        window.opener.postMessage({
+                            tipo: 'PAYPAL_ERROR',
+                            error: '${error.message.replace(/'/g, "\\'")}'  
+                        }, '*');
+                    }
                     window.close();
-                </script>
+                <\/script>
             </body>
             </html>
         `);

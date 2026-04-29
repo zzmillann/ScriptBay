@@ -143,11 +143,13 @@ const ProductDetail = () => {
     // Escuchamos el postMessage que manda el popup al cerrarse (misma tecnica que en el proyecto de clase)
     const onMessage = (event) => {
       if (event.data?.tipo === 'PAYPAL_OK') {
+        clearInterval(popupWatcher);
         window.removeEventListener('message', onMessage);
         setEstadoPago('ok');
         setMensajePago('¡Pago con PayPal realizado correctamente!');
         console.log('[ScriptBay] PayPal pago OK - Order ID:', event.data.orderId);
       } else if (event.data?.tipo === 'PAYPAL_ERROR') {
+        clearInterval(popupWatcher);
         window.removeEventListener('message', onMessage);
         setEstadoPago('error');
         setMensajePago(event.data.error || 'Error al procesar el pago con PayPal');
@@ -155,6 +157,16 @@ const ProductDetail = () => {
       }
     };
     window.addEventListener('message', onMessage);
+
+    
+    const popupWatcher = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(popupWatcher);
+        window.removeEventListener('message', onMessage);
+        setEstadoPago(prev => prev === 'cargando' ? 'error' : prev);
+        setMensajePago(prev => prev ? prev : 'El pago fue cancelado o la ventana de PayPal se cerró.');
+      }
+    }, 600);
   };
 
   const handleConfirmarPago = async () => {
