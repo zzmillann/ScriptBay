@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, MessageCircle, ShoppingCart, Star, ShieldCheck, PackageCheck, ClipboardList, X, CreditCard, CheckCircle, AlertCircle, Loader } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import { getProductById, getRelatedProducts } from '../data/products';
 import { postPagarProducto } from '../services/stripeClient';
@@ -32,6 +32,7 @@ const sectionBaseClass =
 
 const ProductDetail = () => {
   const { id } = useParams();
+  const location = useLocation();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [session] = useState(getSession());
@@ -243,6 +244,8 @@ const ProductDetail = () => {
   const trustBadges = ['🔥 Top ventas', '⚡ Entrega inmediata', '✔ Verificado'];
   const idForCalculation = Number(product.id) || 0;
   const salesCount = (product.reviews || 0) * 6 + idForCalculation * 5;
+  const backTarget = location.state?.from || '/';
+  const backLabel = location.state?.fromLabel || 'Volver';
 
   return (
     <section className="pt-28 pb-20 px-6 max-w-7xl mx-auto min-h-screen">
@@ -252,10 +255,10 @@ const ProductDetail = () => {
         <div className="relative z-10 space-y-10">
         <motion.div variants={itemVariants}>
           <Link
-            to="/"
+            to={backTarget}
             className="btn-secondary text-sm hover:scale-[1.02]"
           >
-            <ArrowLeft className="h-4 w-4" /> Volver
+            <ArrowLeft className="h-4 w-4" /> {backLabel}
           </Link>
         </motion.div>
 
