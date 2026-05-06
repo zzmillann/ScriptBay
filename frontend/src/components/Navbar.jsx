@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart } from 'lucide-react';
+import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { clearSession, getSession, postAuth } from '../services/authClient';
 import ProfilePreviewModal from './ProfilePreviewModal';
@@ -207,6 +207,14 @@ const Navbar = () => {
                                                     >
                                                         <LayoutDashboard className="w-4 h-4 shrink-0 text-faint" />
                                                         Mis productos
+                                                    </Link>
+                                                    <Link
+                                                        to="/dashboard"
+                                                        onClick={() => setIsAvatarMenuOpen(false)}
+                                                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 transition-all duration-150 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-zinc-100"
+                                                    >
+                                                        <BarChart3 className="w-4 h-4 shrink-0 text-faint" />
+                                                        Dashboard ventas
                                                     </Link>
                                                 </div>
 

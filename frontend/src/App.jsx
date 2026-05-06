@@ -11,6 +11,7 @@ import CreateProduct from './pages/CreateProduct';
 import ProductDetail from './pages/ProductDetail';
 import EditProduct from './pages/EditProduct';
 import Wishlist from './pages/Wishlist';
+import Dashboard from './pages/Dashboard';
 import ParticlesBackground from './components/ParticlesBackground';
 import { WishlistProvider } from './context/WishlistContext';
 import ChatAssistant from './components/ChatAssistant';
@@ -65,6 +66,7 @@ const PageShell = () => {
                   <Route path="/edit-product/:id" element={<EditProduct />} />
                   <Route path="/producto/:id" element={<ProductDetail />} />
                   <Route path="/wishlist" element={<Wishlist />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
                 </Routes>
               </motion.div>
             </AnimatePresence>
