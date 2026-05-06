@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil } from 'lucide-react';
+import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { clearSession, getSession, postAuth } from '../services/authClient';
 import ProfilePreviewModal from './ProfilePreviewModal';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useWishlist } from '../context/WishlistContext';
 
 const Navbar = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -18,6 +19,7 @@ const Navbar = () => {
     const avatarUrl = userData.avatarUrl || userData.avatar || '';
     const avatarInitial = username.charAt(0).toUpperCase();
     const productsPath = '/profile?tab=productos';
+    const { wishlist } = useWishlist();
 
     useEffect(() => {
         const refreshSession = () => setSession(getSession());
@@ -127,6 +129,20 @@ const Navbar = () => {
                                     >
                                         <Plus className="w-3.5 h-3.5" />
                                         Publicar
+                                    </Link>
+
+                                    {/* Favoritos */}
+                                    <Link
+                                        to="/wishlist"
+                                        className="icon-control relative flex items-center justify-center w-9 h-9"
+                                        aria-label="Mis favoritos"
+                                    >
+                                        <Heart className="w-[18px] h-[18px] text-faint" />
+                                        {wishlist.length > 0 && (
+                                            <span className="absolute top-1 right-1 min-w-[16px] h-4 px-0.5 flex items-center justify-center text-[10px] font-bold bg-primary text-white rounded-full leading-none">
+                                                {wishlist.length > 99 ? '99+' : wishlist.length}
+                                            </span>
+                                        )}
                                     </Link>
 
                                     {/* Carrito */}
