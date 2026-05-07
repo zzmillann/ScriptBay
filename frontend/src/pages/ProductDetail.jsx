@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MessageCircle, ShoppingCart, Star, ShieldCheck, PackageCheck, ClipboardList, X, CreditCard, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { ArrowLeft, MessageCircle, ShoppingCart, Star, ShieldCheck, PackageCheck, ClipboardList, X, CreditCard, CheckCircle, AlertCircle, Loader, Share2 } from 'lucide-react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
+import QrModal from '../components/QrModal';
 import { getProductById, getRelatedProducts } from '../data/products';
 import { postPagarProducto } from '../services/stripeClient';
 import { postIniciarPagoPayPal } from '../services/paypalClient';
@@ -43,6 +44,8 @@ const ProductDetail = () => {
   const [hashBlockchain, setHashBlockchain] = useState('');
   const [metodoPago, setMetodoPago] = useState('visa');
   const [tipoPago, setTipoPago] = useState('stripe'); // 'stripe' | 'paypal'
+  const [qrOpen, setQrOpen] = useState(false);
+  const productUrl = typeof window !== 'undefined' ? `${window.location.origin}/producto/${id}` : '';
 
   const tarjetasPrueba = {
     visa: { numero: '4242 4242 4242 4242', exp: '12/34', cvc: '123', label: 'Visa' },
@@ -325,6 +328,24 @@ const ProductDetail = () => {
               </div>
             </div>
 
+            {/* Sección compartir */}
+            <div className={sectionClass}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-base-primary">Compartir producto</p>
+                  <p className="text-xs text-base-secondary mt-0.5">Genera un QR para compartir este producto</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQrOpen(true)}
+                  className="flex items-center gap-2 btn-secondary text-sm hover:scale-[1.03]"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Compartir
+                </button>
+              </div>
+            </div>
+
             <div className={sectionClass}>
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-subtle">Vendedor</h2>
               <div className="flex items-center justify-between gap-4">
@@ -393,8 +414,7 @@ const ProductDetail = () => {
         )}
         </div>
       </motion.div>
-      {modalAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+      {modalAbierto && (        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.92, y: 24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -553,6 +573,12 @@ const ProductDetail = () => {
           </motion.div>
         </div>
       )}
+      <QrModal
+        url={productUrl}
+        title={product?.title || ''}
+        isOpen={qrOpen}
+        onClose={() => setQrOpen(false)}
+      />
     </section>
   );
 };

@@ -569,6 +569,94 @@ objetoRouter.get('/MisCompras', async (req, res, next) => {
     }
 });
 
+// Ventas de mis productos (para el dashboard del vendedor)
+objetoRouter.get('/MisVentas', async (req, res, next) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token) throw new Error('No autorizado');
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError) throw authError;
+
+        // 1. Obtener los ids de los productos del usuario
+        const { data: misProductos, error: prodError } = await supabase
+            .from('productos')
+            .select('id, titulo, precio')
+            .eq('user_id', user.id);
+
+        if (prodError) throw prodError;
+
+        if (!misProductos || misProductos.length === 0) {
+            return res.status(200).send({ codigo: 0, ventas: [], resumen: { totalVentas: 0, ingresoTotal: 0, productosMasVendidos: [] } });
+        }
+
+        const idsProductos = misProductos.map((p) => p.id);
+
+        // 2. Obtener todas las compras de esos productos
+        const { data: ventas, error: ventasError } = await supabase
+            .from('compras')
+            .select('*')
+            .in('producto_id', idsProductos)
+            .order('created_at', { ascending: false });
+
+        if (ventasError) throw ventasError;
+
+        const ventasData = ventas || [];
+
+        // 3. Calcular resumen
+        const ingresoTotal = ventasData.reduce((acc, v) => acc + (Number(v.precio) || 0), 0);
+
+        // Ventas por producto
+        const contadorProductos = {};
+        for (const venta of ventasData) {
+            const prod = misProductos.find((p) => p.id === venta.producto_id);
+            const titulo = prod?.titulo || venta.titulo || 'Desconocido';
+            if (!contadorProductos[venta.producto_id]) {
+                contadorProductos[venta.producto_id] = { titulo, ventas: 0, ingresos: 0 };
+            }
+            contadorProductos[venta.producto_id].ventas += 1;
+            contadorProductos[venta.producto_id].ingresos += Number(venta.precio) || 0;
+        }
+
+        const productosMasVendidos = Object.values(contadorProductos)
+            .sort((a, b) => b.ventas - a.ventas)
+            .slice(0, 5);
+
+        // Ventas agrupadas por mes (últimos 6 meses)
+        const ventasPorMes = {};
+        const ahora = new Date();
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(ahora.getFullYear(), ahora.getMonth() - i, 1);
+            const key = d.toLocaleString('es-ES', { month: 'short', year: '2-digit' });
+            ventasPorMes[key] = { mes: key, ventas: 0, ingresos: 0 };
+        }
+        for (const venta of ventasData) {
+            const d = new Date(venta.created_at);
+            const key = d.toLocaleString('es-ES', { month: 'short', year: '2-digit' });
+            if (ventasPorMes[key]) {
+                ventasPorMes[key].ventas += 1;
+                ventasPorMes[key].ingresos += Number(venta.precio) || 0;
+            }
+        }
+
+        res.status(200).send({
+            codigo: 0,
+            ventas: ventasData,
+            resumen: {
+                totalVentas: ventasData.length,
+                ingresoTotal: Number(ingresoTotal.toFixed(2)),
+                productosMasVendidos,
+                ventasPorMes: Object.values(ventasPorMes),
+            }
+        });
+
+    } catch (error) {
+        console.log('ERROR en /MisVentas:', error);
+        res.status(200).send({ codigo: 1, mensaje: error.message, ventas: [], resumen: {} });
+    }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default objetoRouter;
