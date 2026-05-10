@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import endpointCliente from './Routes/endpointCliente.js';
 import endpointProductos from './Routes/endpointProductos.js';
 import endpointChatbot from './Routes/endpointChatbot.js';
+import endpointSubastas from './Routes/endpointSubastas.js';
 
 export default (serverExpress) => {
 
@@ -15,5 +16,6 @@ export default (serverExpress) => {
     serverExpress.use('/api/Cliente', endpointCliente);
     serverExpress.use('/api/productos', endpointProductos);
     serverExpress.use('/api/chatbot', endpointChatbot);
+    serverExpress.use('/api/subastas', endpointSubastas);
 
 };

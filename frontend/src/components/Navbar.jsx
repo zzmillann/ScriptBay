@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3 } from 'lucide-react';
+import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3, Gavel } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { clearSession, getSession, postAuth } from '../services/authClient';
 import ProfilePreviewModal from './ProfilePreviewModal';
@@ -122,6 +122,15 @@ const Navbar = () => {
                             {/* Con sesión */}
                             {session && (
                                 <>
+                                    {/* Subastas */}
+                                    <Link
+                                        to="/subastas"
+                                        className="hidden md:inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-xl border border-zinc-200/60 dark:border-zinc-700/50 bg-transparent dark:bg-transparent text-zinc-500 dark:text-zinc-400 transition-all duration-200 hover:border-primary/30 hover:text-primary hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+                                    >
+                                        <Gavel className="w-3.5 h-3.5" />
+                                        Subastas
+                                    </Link>
+
                                     {/* Publicar producto — menos dominante */}
                                     <Link
                                         to="/create-product"
@@ -215,6 +224,14 @@ const Navbar = () => {
                                                     >
                                                         <BarChart3 className="w-4 h-4 shrink-0 text-faint" />
                                                         Dashboard ventas
+                                                    </Link>
+                                                    <Link
+                                                        to="/subastas"
+                                                        onClick={() => setIsAvatarMenuOpen(false)}
+                                                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 transition-all duration-150 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-zinc-100"
+                                                    >
+                                                        <Gavel className="w-4 h-4 shrink-0 text-faint" />
+                                                        Subastas
                                                     </Link>
                                                 </div>
 

@@ -12,6 +12,9 @@ import ProductDetail from './pages/ProductDetail';
 import EditProduct from './pages/EditProduct';
 import Wishlist from './pages/Wishlist';
 import Dashboard from './pages/Dashboard';
+import Subastas from './pages/Subastas';
+import SubastaDetalle from './pages/SubastaDetalle';
+import CrearSubasta from './pages/CrearSubasta';
 import ParticlesBackground from './components/ParticlesBackground';
 import { WishlistProvider } from './context/WishlistContext';
 import ChatAssistant from './components/ChatAssistant';
@@ -67,6 +70,9 @@ const PageShell = () => {
                   <Route path="/producto/:id" element={<ProductDetail />} />
                   <Route path="/wishlist" element={<Wishlist />} />
                   <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/subastas" element={<Subastas />} />
+                  <Route path="/subastas/crear" element={<CrearSubasta />} />
+                  <Route path="/subastas/:id" element={<SubastaDetalle />} />
                 </Routes>
               </motion.div>
             </AnimatePresence>
