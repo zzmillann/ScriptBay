@@ -657,6 +657,153 @@ objetoRouter.get('/MisVentas', async (req, res, next) => {
     }
 });
 
+// ─── RECOMENDACIONES (collaborative filtering básico por categoría) ───────────
+
+objetoRouter.get('/Recomendados', async (req, res) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token) throw new Error('No autorizado');
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError) throw authError;
+
+        // IDs de la wishlist enviados desde el frontend como ?wishlist=id1,id2,id3
+        const wishlistIds = req.query.wishlist
+            ? req.query.wishlist.split(',').filter(Boolean)
+            : [];
+
+        // 1. Historial de compras del usuario
+        const { data: misCompras, error: comprasError } = await supabase
+            .from('compras')
+            .select('producto_id, titulo')
+            .eq('user_id', user.id);
+
+        if (comprasError) throw comprasError;
+
+        const misProductosIds = (misCompras || [])
+            .filter(c => c.producto_id)
+            .map(c => c.producto_id);
+
+        // 2. Categorías de los productos comprados -> razonPorCategoria[categoria] = titulo que la motiva
+        const razonPorCategoria = {};
+
+        if (misProductosIds.length > 0) {
+            const { data: productosComprados } = await supabase
+                .from('productos')
+                .select('id, titulo, categoria')
+                .in('id', misProductosIds);
+
+            (productosComprados || []).forEach(p => {
+                if (p.categoria && !razonPorCategoria[p.categoria]) {
+                    razonPorCategoria[p.categoria] = p.titulo;
+                }
+            });
+        }
+
+        // 3. Categorías de la wishlist (complementan las compras)
+        if (wishlistIds.length > 0) {
+            const { data: productosWishlist } = await supabase
+                .from('productos')
+                .select('id, titulo, categoria')
+                .in('id', wishlistIds);
+
+            (productosWishlist || []).forEach(p => {
+                if (p.categoria && !razonPorCategoria[p.categoria]) {
+                    razonPorCategoria[p.categoria] = p.titulo;
+                }
+            });
+        }
+
+        const categoriasDeInteres = Object.keys(razonPorCategoria);
+
+        // ── Sin historial ni wishlist: devolver los productos globalmente más comprados ──
+        if (categoriasDeInteres.length === 0) {
+            const { data: todasCompras } = await supabase
+                .from('compras')
+                .select('producto_id')
+                .not('producto_id', 'is', null);
+
+            const frecuenciaGlobal = {};
+            (todasCompras || []).forEach(c => {
+                frecuenciaGlobal[c.producto_id] = (frecuenciaGlobal[c.producto_id] || 0) + 1;
+            });
+
+            const idsPopulares = Object.entries(frecuenciaGlobal)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 8)
+                .map(([id]) => id);
+
+            if (idsPopulares.length === 0) {
+                return res.status(200).send({ codigo: 0, recomendaciones: [] });
+            }
+
+            const { data: productosPopulares } = await supabase
+                .from('productos')
+                .select('id, titulo, categoria, precio, imagen, tipo')
+                .in('id', idsPopulares)
+                .neq('user_id', user.id);
+
+            const resultado = (productosPopulares || [])
+                .map(p => ({ ...p, score: frecuenciaGlobal[p.id] || 0, razon: 'Popular en ScriptBay' }))
+                .sort((a, b) => b.score - a.score);
+
+            return res.status(200).send({ codigo: 0, recomendaciones: resultado });
+        }
+
+        // 4. Candidatos: productos en esas categorías que el usuario NO ha comprado y no son suyos
+        let queryBuilder = supabase
+            .from('productos')
+            .select('id, titulo, categoria, precio, imagen, tipo')
+            .in('categoria', categoriasDeInteres)
+            .neq('user_id', user.id);
+
+        if (misProductosIds.length > 0) {
+            queryBuilder = queryBuilder.not('id', 'in', `(${misProductosIds.join(',')})`);
+        }
+
+        const { data: candidatos } = await queryBuilder;
+
+        if (!candidatos || candidatos.length === 0) {
+            return res.status(200).send({ codigo: 0, recomendaciones: [] });
+        }
+
+        // 5. Collaborative filtering: cuántos otros usuarios compraron cada candidato
+        const candidatoIds = candidatos.map(p => p.id);
+
+        const { data: comprasOtros } = await supabase
+            .from('compras')
+            .select('producto_id')
+            .neq('user_id', user.id)
+            .in('producto_id', candidatoIds);
+
+        const frecuencia = {};
+        (comprasOtros || []).forEach(c => {
+            if (c.producto_id) {
+                frecuencia[c.producto_id] = (frecuencia[c.producto_id] || 0) + 1;
+            }
+        });
+
+        // 6. Ordenar por score (compras de otros usuarios) y devolver top 8
+        const recomendados = candidatos
+            .map(p => ({
+                ...p,
+                score: frecuencia[p.id] || 0,
+                razon: razonPorCategoria[p.categoria]
+                    ? `Porque compraste "${razonPorCategoria[p.categoria]}"`
+                    : `Popular en ${p.categoria}`
+            }))
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 8);
+
+        res.status(200).send({ codigo: 0, recomendaciones: recomendados });
+
+    } catch (error) {
+        console.log('ERROR en /Recomendados:', error);
+        res.status(200).send({ codigo: 1, mensaje: error.message, recomendaciones: [] });
+    }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default objetoRouter;
