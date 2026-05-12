@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MessageCircle, ShoppingCart, Star, ShieldCheck, PackageCheck, ClipboardList, X, CreditCard, CheckCircle, AlertCircle, Loader, Share2 } from 'lucide-react';
+import { ArrowLeft, Check, Clipboard, Copy, ExternalLink, MessageCircle, QrCode, ShoppingCart, Star, ShieldCheck, PackageCheck, ClipboardList, X, CreditCard, CheckCircle, AlertCircle, Loader, Share2 } from 'lucide-react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import QrModal from '../components/QrModal';
@@ -9,6 +9,7 @@ import { postPagarProducto } from '../services/stripeClient';
 import { postIniciarPagoPayPal } from '../services/paypalClient';
 import { getSession } from '../services/authClient';
 import { normalizeImageUrl } from '../utils/imageUrl';
+import { buildPurchaseExperience, formatEthPrice, formatEurPrice } from '../data/purchaseExperience';
 
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -45,7 +46,9 @@ const ProductDetail = () => {
   const [metodoPago, setMetodoPago] = useState('visa');
   const [tipoPago, setTipoPago] = useState('stripe'); // 'stripe' | 'paypal'
   const [qrOpen, setQrOpen] = useState(false);
+  const [copiedShare, setCopiedShare] = useState('');
   const productUrl = typeof window !== 'undefined' ? `${window.location.origin}/producto/${id}` : '';
+  const purchaseContext = location.state?.purchase || null;
 
   const tarjetasPrueba = {
     visa: { numero: '4242 4242 4242 4242', exp: '12/34', cvc: '123', label: 'Visa' },
@@ -219,6 +222,15 @@ const ProductDetail = () => {
 
   const relatedProducts = getRelatedProducts(product.id, product.category, 4);
   const isService = /servicio/i.test(product.category) || /servicio/i.test(product.title);
+  const ownership = buildPurchaseExperience({
+    id: purchaseContext?.id || product.id,
+    productId: purchaseContext?.productId || product.id,
+    title: purchaseContext?.title || product.title,
+    price: purchaseContext?.price || product.price,
+    date: purchaseContext?.date,
+    type: purchaseContext?.type || product.category,
+    category: product.category
+  });
   const sectionClass = `${sectionBaseClass} ${
     isService
       ? 'hover:border-blue-400/30 hover:bg-blue-50 dark:hover:border-blue-500/20 dark:hover:bg-blue-500/5 hover:shadow-[0_12px_30px_-24px_rgba(59,130,246,0.20)] dark:hover:shadow-[0_12px_30px_-24px_rgba(59,130,246,0.35)]'
@@ -249,6 +261,16 @@ const ProductDetail = () => {
   const salesCount = (product.reviews || 0) * 6 + idForCalculation * 5;
   const backTarget = location.state?.from || '/';
   const backLabel = location.state?.fromLabel || 'Volver';
+
+  const handleCopyValue = async (value, key) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedShare(key);
+      window.setTimeout(() => setCopiedShare(''), 1800);
+    } catch {
+      setCopiedShare('');
+    }
+  };
 
   return (
     <section className="pt-28 pb-20 px-6 max-w-7xl mx-auto min-h-screen">
@@ -306,7 +328,8 @@ const ProductDetail = () => {
               <div className="mt-7 flex items-end justify-between gap-5">
                 <div>
                   <span className="text-sm text-dimmed">Precio</span>
-                  <motion.p layoutId={`product-price-${product.id}`} className="text-base-primary text-5xl font-black tracking-tight">{product.price}€</motion.p>
+                  <motion.p layoutId={`product-price-${product.id}`} className="text-base-primary text-5xl font-black tracking-tight">{formatEurPrice(purchaseContext?.price || product.price)}</motion.p>
+                  <p className="mt-2 text-sm font-medium text-zinc-500">{formatEthPrice(purchaseContext?.price || product.price)}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   {!esPropietario ? (
@@ -330,19 +353,48 @@ const ProductDetail = () => {
 
             {/* Sección compartir */}
             <div className={sectionClass}>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold text-base-primary">Compartir producto</p>
-                  <p className="text-xs text-base-secondary mt-0.5">Genera un QR para compartir este producto</p>
+                  <p className="text-xs text-base-secondary mt-0.5">QR, enlace publico y verificacion on-chain sin ruido.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setQrOpen(true)}
-                  className="flex items-center gap-2 btn-secondary text-sm hover:scale-[1.03]"
-                >
-                  <Share2 className="w-4 h-4" />
-                  Compartir
-                </button>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQrOpen(true)}
+                    className="flex items-center gap-2 btn-secondary text-sm hover:scale-[1.03]"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    QR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyValue(productUrl, 'link')}
+                    className="flex items-center gap-2 btn-secondary text-sm hover:scale-[1.03]"
+                  >
+                    {copiedShare === 'link' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    Copiar enlace
+                  </button>
+                  <a
+                    href={ownership.explorerUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 btn-secondary text-sm hover:scale-[1.03]"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Ver tx
+                  </a>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Asset verificable</p>
+                  <p className="mt-2 text-sm text-base-primary">Wallet {ownership.walletShort}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Tx registrada</p>
+                  <p className="mt-2 font-mono text-sm text-base-primary">{ownership.txHashShort}</p>
+                </div>
               </div>
             </div>
 
@@ -396,6 +448,64 @@ const ProductDetail = () => {
                 <li key={item}>• {item}</li>
               ))}
             </ul>
+          </div>
+        </motion.div>
+
+        <motion.div variants={itemVariants} className="grid gap-6 lg:grid-cols-2">
+          <div className={sectionClass}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-semibold text-base-primary">Ownership y blockchain</h3>
+                <p className="mt-1 text-sm text-dimmed">Informacion tecnica util, sin teatralidad crypto.</p>
+              </div>
+              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${accentBadgeClass}`}>Licencia on-chain</span>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Wallet propietaria</p>
+                <p className="mt-2 font-mono text-sm text-base-primary">{ownership.walletShort}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Tx hash</p>
+                <p className="mt-2 font-mono text-sm text-base-primary">{ownership.txHashShort}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Fecha de compra / mint</p>
+                <p className="mt-2 text-sm text-base-primary">{ownership.mintedAt}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Red usada</p>
+                <p className="mt-2 text-sm text-base-primary">{ownership.network}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className={sectionClass}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-semibold text-base-primary">Trazabilidad</h3>
+                <p className="mt-1 text-sm text-dimmed">Contexto comercial y de ownership reutilizable.</p>
+              </div>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-base-secondary">Asset inspeccionable</span>
+            </div>
+            <div className="mt-5 grid gap-3">
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+                <span className="text-dimmed">Propietarios anteriores</span>
+                <span className="font-semibold text-base-primary">{ownership.previousOwners}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+                <span className="text-dimmed">Ultima transferencia</span>
+                <span className="font-semibold text-base-primary">Hace {ownership.transferDays} dias</span>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+                <span className="text-dimmed">Estado de licencia</span>
+                <span className="font-semibold text-base-primary">{ownership.licenseLabel}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+                <span className="text-dimmed">Verificacion</span>
+                <span className="font-semibold text-base-primary">{ownership.ownershipLabel}</span>
+              </div>
+            </div>
           </div>
         </motion.div>
 
