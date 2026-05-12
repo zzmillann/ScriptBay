@@ -94,7 +94,10 @@ const Profile = () => {
 
     const cargarMisProductos = async () => {
         const session = await getActiveSession();
-        if (!session?.accessToken) return;
+        if (!session?.accessToken) {
+            setFeedback({ type: 'error', message: 'Tu sesión expiró. Inicia sesión de nuevo para ver tus productos.' });
+            return;
+        }
 
         try {
             const response = await fetch('http://localhost:3000/api/productos/MisProductos', {
@@ -105,9 +108,31 @@ const Profile = () => {
             const data = await parseApiResponse(response, 'No se pudieron cargar tus productos');
             if (data.codigo === 0) {
                 setMisProductos(data.productos || []);
+                return;
             }
+
+            throw new Error(data.mensaje || 'No se pudieron cargar tus productos');
         } catch (error) {
             console.log(error);
+
+            try {
+                const response = await fetch('http://localhost:3000/api/productos/ObtenerProductos');
+                const data = await parseApiResponse(response, 'No se pudieron cargar tus productos');
+
+                if (data.codigo === 0) {
+                    const userId = session?.datosCliente?.id;
+                    const propios = (data.productos || []).filter((p) => String(p.user_id || '') === String(userId || ''));
+                    setMisProductos(propios);
+                    if (!propios.length) {
+                        setFeedback({ type: 'error', message: 'No se encontraron productos vinculados a tu cuenta actual.' });
+                    }
+                    return;
+                }
+            } catch (fallbackError) {
+                console.log(fallbackError);
+            }
+
+            setFeedback({ type: 'error', message: 'No se pudieron cargar tus productos. Revisa tu sesión e inténtalo de nuevo.' });
         }
     };
 

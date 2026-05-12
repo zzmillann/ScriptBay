@@ -68,6 +68,28 @@ export function clearSession() {
     console.log('[AUTH TRACE] sesión eliminada de localStorage');
 }
 
+const isJwtExpired = (token) => {
+    if (!token) return true;
+
+    try {
+        const [, payloadBase64Url] = token.split('.');
+        if (!payloadBase64Url) return false;
+
+        const payloadBase64 = payloadBase64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const payloadJson = atob(payloadBase64);
+        const payload = JSON.parse(payloadJson);
+        const exp = Number(payload?.exp || 0);
+
+        if (!exp) return false;
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        return exp <= nowSeconds;
+    } catch (error) {
+        console.warn('[AUTH TRACE] no se pudo validar exp del JWT, se mantiene sesión actual', error);
+        return false;
+    }
+};
+
 /**
  * Retorna la sesión actual si es válida. 
  * TODO: Implementar lógica de expiración de JWT y auto-refresh.
@@ -75,7 +97,11 @@ export function clearSession() {
 export async function getValidSession() {
     const session = getSession();
     if (!session) return null;
-    
-    // De momento retornamos la sesión tal cual para evitar errores de importación.
+
+    if (isJwtExpired(session.accessToken)) {
+        const refreshed = await refreshSession();
+        return refreshed;
+    }
+
     return session;
 }
