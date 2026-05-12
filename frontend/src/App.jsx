@@ -10,6 +10,7 @@ import Profile from './pages/Profile';
 import CreateProduct from './pages/CreateProduct';
 import ProductDetail from './pages/ProductDetail';
 import EditProduct from './pages/EditProduct';
+import PurchasedAssetWorkspace from './pages/PurchasedAssetWorkspace';
 import Wishlist from './pages/Wishlist';
 import Dashboard from './pages/Dashboard';
 import Subastas from './pages/Subastas';
@@ -68,6 +69,7 @@ const PageShell = () => {
                   <Route path="/edit-profile" element={<Profile />} />
                   <Route path="/create-product" element={<CreateProduct />} />
                   <Route path="/edit-product/:id" element={<EditProduct />} />
+                  <Route path="/mis-compras/:id/acceso" element={<PurchasedAssetWorkspace />} />
                   <Route path="/producto/:id" element={<ProductDetail />} />
                   <Route path="/wishlist" element={<Wishlist />} />
                   <Route path="/dashboard" element={<Dashboard />} />
