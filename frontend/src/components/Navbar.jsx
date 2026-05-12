@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil } from 'lucide-react';
+import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3, Gavel } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { clearSession, getSession, postAuth } from '../services/authClient';
 import ProfilePreviewModal from './ProfilePreviewModal';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useWishlist } from '../context/WishlistContext';
 
 const Navbar = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -18,6 +19,7 @@ const Navbar = () => {
     const avatarUrl = userData.avatarUrl || userData.avatar || '';
     const avatarInitial = username.charAt(0).toUpperCase();
     const productsPath = '/profile?tab=productos';
+    const { wishlist } = useWishlist();
 
     useEffect(() => {
         const refreshSession = () => setSession(getSession());
@@ -120,6 +122,15 @@ const Navbar = () => {
                             {/* Con sesión */}
                             {session && (
                                 <>
+                                    {/* Subastas */}
+                                    <Link
+                                        to="/subastas"
+                                        className="hidden md:inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-xl border border-zinc-200/60 dark:border-zinc-700/50 bg-transparent dark:bg-transparent text-zinc-500 dark:text-zinc-400 transition-all duration-200 hover:border-primary/30 hover:text-primary hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+                                    >
+                                        <Gavel className="w-3.5 h-3.5" />
+                                        Subastas
+                                    </Link>
+
                                     {/* Publicar producto — menos dominante */}
                                     <Link
                                         to="/create-product"
@@ -127,6 +138,20 @@ const Navbar = () => {
                                     >
                                         <Plus className="w-3.5 h-3.5" />
                                         Publicar
+                                    </Link>
+
+                                    {/* Favoritos */}
+                                    <Link
+                                        to="/wishlist"
+                                        className="icon-control relative flex items-center justify-center w-9 h-9"
+                                        aria-label="Mis favoritos"
+                                    >
+                                        <Heart className="w-[18px] h-[18px] text-faint" />
+                                        {wishlist.length > 0 && (
+                                            <span className="absolute top-1 right-1 min-w-[16px] h-4 px-0.5 flex items-center justify-center text-[10px] font-bold bg-primary text-white rounded-full leading-none">
+                                                {wishlist.length > 99 ? '99+' : wishlist.length}
+                                            </span>
+                                        )}
                                     </Link>
 
                                     {/* Carrito */}
@@ -191,6 +216,22 @@ const Navbar = () => {
                                                     >
                                                         <LayoutDashboard className="w-4 h-4 shrink-0 text-faint" />
                                                         Mis productos
+                                                    </Link>
+                                                    <Link
+                                                        to="/dashboard"
+                                                        onClick={() => setIsAvatarMenuOpen(false)}
+                                                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 transition-all duration-150 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-zinc-100"
+                                                    >
+                                                        <BarChart3 className="w-4 h-4 shrink-0 text-faint" />
+                                                        Dashboard ventas
+                                                    </Link>
+                                                    <Link
+                                                        to="/subastas"
+                                                        onClick={() => setIsAvatarMenuOpen(false)}
+                                                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 transition-all duration-150 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-zinc-100"
+                                                    >
+                                                        <Gavel className="w-4 h-4 shrink-0 text-faint" />
+                                                        Subastas
                                                     </Link>
                                                 </div>
 

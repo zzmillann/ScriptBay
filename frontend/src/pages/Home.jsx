@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import ProductCard from '../components/ProductCard';
+import RecomendadosParaTi from '../components/RecomendadosParaTi';
 import { products as localProducts } from '../data/products';
 import { SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
 import { normalizeImageUrl } from '../utils/imageUrl';
@@ -174,6 +175,8 @@ const Home = () => {
                     </div>
                 </div>
             </section>
+
+            <RecomendadosParaTi />
 
             <div className="flex flex-wrap gap-2 mb-8">
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full scrollbar-hide">

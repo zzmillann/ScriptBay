@@ -1,11 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ShoppingCart, Star } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { ShoppingCart, Star, Heart } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { useWishlist } from '../context/WishlistContext';
 
 const ProductCard = ({ id, title, category, price, rating, reviews, image }) => {
     const fallbackImage = useMemo(() => `https://picsum.photos/seed/card-${id}/640/420`, [id]);
     const [imgSrc, setImgSrc] = useState(image || fallbackImage);
+    const { toggleWishlist, isInWishlist } = useWishlist();
+    const liked = isInWishlist(id);
+
+    const handleWishlist = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleWishlist({ id, title, category, price, rating, reviews, image });
+    };
 
     useEffect(() => {
         setImgSrc(image || fallbackImage);
@@ -39,6 +48,31 @@ const ProductCard = ({ id, title, category, price, rating, reviews, image }) => 
                             {category}
                         </span>
                     </div>
+                    {/* Botón favoritos */}
+                    <button
+                        type="button"
+                        onClick={handleWishlist}
+                        aria-label={liked ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+                        className="absolute top-4 left-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/90 dark:bg-dark/80 backdrop-blur-md border border-zinc-200/60 dark:border-white/10 shadow-sm transition-all duration-200 hover:scale-110 active:scale-95"
+                    >
+                        <AnimatePresence mode="wait" initial={false}>
+                            <motion.span
+                                key={liked ? 'liked' : 'unliked'}
+                                initial={{ scale: 0.5, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.5, opacity: 0 }}
+                                transition={{ duration: 0.18 }}
+                            >
+                                <Heart
+                                    className={`w-4 h-4 transition-colors ${
+                                        liked
+                                            ? 'text-primary fill-primary'
+                                            : 'text-zinc-400 dark:text-zinc-500'
+                                    }`}
+                                />
+                            </motion.span>
+                        </AnimatePresence>
+                    </button>
                 </motion.div>
 
                 {/* Contenido */}
