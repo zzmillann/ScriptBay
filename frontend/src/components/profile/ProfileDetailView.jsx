@@ -31,6 +31,7 @@ const ProfileDetailView = ({
         price: compra.precio ? `${compra.precio} EUR` : (compra.metodo_pago || 'Sin precio'),
         date: compra.created_at || new Date().toISOString().slice(0, 10),
         status: String(compra.estado || '').toLowerCase().includes('pend') ? 'Pendiente' : 'Completado',
+        type: compra.tipo || compra.type || compra.categoria || 'producto',
         image: compra.imagen || `https://via.placeholder.com/300x180/171717/ffffff?text=Compra+${index + 1}`
     }));
     const purchasesToRender = normalizedPurchases.length ? normalizedPurchases : mockPurchases;
