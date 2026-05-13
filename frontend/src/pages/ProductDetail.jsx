@@ -547,45 +547,71 @@ const ProductDetail = () => {
             {/* Selector de pasarela de pago */}
             <div className="mb-4">
               <p className="mb-2 text-sm font-semibold text-dimmed">Forma de pago</p>
-              <div className="flex gap-2 mb-4">
+              <div className="flex gap-3 mb-3">
                 <button
                   onClick={() => setTipoPago('stripe')}
-                  className={`flex-1 rounded-xl border py-2 text-xs font-bold transition hover:scale-[1.03] active:scale-95 ${
+                  className={`flex-1 rounded-xl border py-3 px-3 flex flex-col items-center gap-2 transition hover:scale-[1.02] active:scale-95 ${
                     tipoPago === 'stripe'
-                      ? 'border-violet-400 bg-violet-100 text-violet-700 dark:border-violet-400/70 dark:bg-violet-500/20 dark:text-violet-200'
-                      : 'border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 text-dimmed hover:border-violet-300 dark:hover:border-violet-400/40'
+                      ? 'border-violet-400 bg-violet-50 dark:border-violet-400/70 dark:bg-violet-500/10'
+                      : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-violet-300 dark:hover:border-violet-400/40'
                   }`}
                 >
-                  💳 Tarjeta
+                  <div className="flex items-center gap-1">
+                    <svg width="30" height="19" viewBox="0 0 30 19" fill="none"><rect width="30" height="19" rx="3" fill="#1A1F71"/><text x="3" y="14" fontFamily="Arial" fontWeight="bold" fontSize="10" fill="white" fontStyle="italic">VISA</text></svg>
+                    <svg width="30" height="19" viewBox="0 0 30 19" fill="none"><rect width="30" height="19" rx="3" fill="#1B1B1B"/><circle cx="11" cy="9.5" r="5.5" fill="#EB001B"/><circle cx="19" cy="9.5" r="5.5" fill="#F79E1B"/><ellipse cx="15" cy="9.5" rx="2" ry="5.5" fill="#FF5F00"/></svg>
+                    <svg width="30" height="19" viewBox="0 0 30 19" fill="none"><rect width="30" height="19" rx="3" fill="#007BC1"/><text x="3" y="13" fontFamily="Arial" fontWeight="bold" fontSize="8" fill="white">AMEX</text></svg>
+                  </div>
+                  <span className="text-xs font-semibold text-dimmed">Tarjeta</span>
                 </button>
                 <button
                   onClick={() => setTipoPago('paypal')}
-                  className={`flex-1 rounded-xl border py-2 text-xs font-bold transition hover:scale-[1.03] active:scale-95 ${
+                  className={`flex-1 rounded-xl border py-3 px-3 flex flex-col items-center gap-2 transition hover:scale-[1.02] active:scale-95 ${
                     tipoPago === 'paypal'
-                      ? 'border-blue-400 bg-blue-100 text-blue-700 dark:border-blue-400/70 dark:bg-blue-500/20 dark:text-blue-200'
-                      : 'border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 text-dimmed hover:border-blue-300 dark:hover:border-blue-400/40'
+                      ? 'border-blue-400 bg-blue-50 dark:border-blue-400/70 dark:bg-blue-500/10'
+                      : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-blue-300 dark:hover:border-blue-400/40'
                   }`}
                 >
-                  🅿️ PayPal
+                  <svg width="62" height="19" viewBox="0 0 62 19" fill="none">
+                    <text x="0" y="14" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="#003087">Pay</text>
+                    <text x="22" y="14" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="#009CDE">Pal</text>
+                  </svg>
+                  <span className="text-xs font-semibold text-dimmed">PayPal</span>
                 </button>
               </div>
 
               {/* Subtabs de tarjeta solo cuando tipoPago es stripe */}
               {tipoPago === 'stripe' && (
                 <div className="flex gap-2">
-                  {Object.entries(tarjetasPrueba).map(([key, val]) => (
-                    <button
-                      key={key}
-                      onClick={() => setMetodoPago(key)}
-                      className={`flex-1 rounded-xl border py-2 text-xs font-bold transition hover:scale-[1.03] active:scale-95 ${
-                        metodoPago === key
-                          ? 'border-violet-400 bg-violet-100 text-violet-700 dark:border-violet-400/70 dark:bg-violet-500/20 dark:text-violet-200'
-                          : 'border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 text-dimmed hover:border-violet-300 dark:hover:border-violet-400/40'
-                      }`}
-                    >
-                      {val.label}
-                    </button>
-                  ))}
+                  <button
+                    onClick={() => setMetodoPago('visa')}
+                    className={`flex-1 rounded-xl border py-3 flex items-center justify-center transition hover:scale-[1.02] active:scale-95 ${
+                      metodoPago === 'visa'
+                        ? 'border-violet-400 bg-violet-50 dark:border-violet-400/70 dark:bg-violet-500/10'
+                        : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-violet-300 dark:hover:border-violet-400/40'
+                    }`}
+                  >
+                    <svg width="46" height="28" viewBox="0 0 46 28" fill="none"><rect width="46" height="28" rx="4" fill="#1A1F71"/><text x="5" y="20" fontFamily="Arial" fontWeight="bold" fontSize="14" fill="white" fontStyle="italic">VISA</text></svg>
+                  </button>
+                  <button
+                    onClick={() => setMetodoPago('mastercard')}
+                    className={`flex-1 rounded-xl border py-3 flex items-center justify-center transition hover:scale-[1.02] active:scale-95 ${
+                      metodoPago === 'mastercard'
+                        ? 'border-violet-400 bg-violet-50 dark:border-violet-400/70 dark:bg-violet-500/10'
+                        : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-violet-300 dark:hover:border-violet-400/40'
+                    }`}
+                  >
+                    <svg width="46" height="28" viewBox="0 0 46 28" fill="none"><rect width="46" height="28" rx="4" fill="#1B1B1B"/><circle cx="17" cy="14" r="8" fill="#EB001B"/><circle cx="29" cy="14" r="8" fill="#F79E1B"/><ellipse cx="23" cy="14" rx="3" ry="8" fill="#FF5F00"/></svg>
+                  </button>
+                  <button
+                    onClick={() => setMetodoPago('amex')}
+                    className={`flex-1 rounded-xl border py-3 flex items-center justify-center transition hover:scale-[1.02] active:scale-95 ${
+                      metodoPago === 'amex'
+                        ? 'border-violet-400 bg-violet-50 dark:border-violet-400/70 dark:bg-violet-500/10'
+                        : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-violet-300 dark:hover:border-violet-400/40'
+                    }`}
+                  >
+                    <svg width="46" height="28" viewBox="0 0 46 28" fill="none"><rect width="46" height="28" rx="4" fill="#007BC1"/><text x="5" y="19" fontFamily="Arial" fontWeight="bold" fontSize="11" fill="white">AMEX</text></svg>
+                  </button>
                 </div>
               )}
             </div>
@@ -608,7 +634,7 @@ const ProductDetail = () => {
             {tipoPago === 'paypal' && (
               <div className="mb-6 rounded-2xl border border-blue-400/30 bg-blue-500/5 p-4">
                 <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-300">
-                  🅿️ PayPal Sandbox
+                  <svg width="58" height="16" viewBox="0 0 58 16" fill="none"><text x="0" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#003087">Pay</text><text x="20" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#009CDE">Pal</text></svg> Sandbox
                 </div>
                 <p className="text-sm text-dimmed leading-relaxed">
                   Se abrirá una ventana de PayPal para completar el pago de forma segura.
@@ -629,7 +655,12 @@ const ProductDetail = () => {
                     : 'border-violet-400/35 bg-violet-100 dark:bg-violet-600/20 text-violet-700 dark:text-white hover:bg-violet-200 dark:hover:bg-violet-600/35 focus-visible:ring-primary/50'
                 }`}
               >
-                {tipoPago === 'paypal' ? '🅿️ Pagar con PayPal' : 'Confirmar Pago'}
+                {tipoPago === 'paypal' ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg width="58" height="16" viewBox="0 0 58 16" fill="none"><text x="0" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#003087">Pay</text><text x="20" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#009CDE">Pal</text></svg>
+                    Pagar
+                  </span>
+                ) : 'Confirmar Pago'}
               </button>
             )}
 
