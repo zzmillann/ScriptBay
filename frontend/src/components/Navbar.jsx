@@ -308,14 +308,13 @@ const Navbar = () => {
                                         </AnimatePresence>
                                     </div>
 
-                                    {/* Carrito */}
+                                    {/* Mis Compras */}
                                     <Link
-                                        to="/cart"
+                                        to="/mis-compras"
                                         className="icon-control relative flex items-center justify-center w-9 h-9"
-                                        aria-label="Carrito de compras"
+                                        aria-label="Mis compras"
                                     >
                                         <ShoppingCart className="w-[18px] h-[18px] text-faint" />
-                                        <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-primary rounded-full" />
                                     </Link>
 
                                     {/* Avatar + dropdown */}
@@ -380,6 +379,14 @@ const Navbar = () => {
                                                         Dashboard ventas
                                                     </Link>
                                                     <Link
+                                                        to="/profile?view=compras"
+                                                        onClick={() => setIsAvatarMenuOpen(false)}
+                                                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 transition-all duration-150 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-zinc-100"
+                                                    >
+                                                        <ShoppingBag className="w-4 h-4 shrink-0 text-faint" />
+                                                        Mis compras
+                                                    </Link>
+                                                    <Link
                                                         to="/subastas"
                                                         onClick={() => setIsAvatarMenuOpen(false)}
                                                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 transition-all duration-150 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -437,7 +444,7 @@ const Navbar = () => {
                                 {session && (
                                     <>
                                         <Link to="/create-product" className="menu-item text-sm" onClick={() => setIsMenuOpen(false)}>Publicar producto</Link>
-                                        <Link to="/cart" className="menu-item text-sm" onClick={() => setIsMenuOpen(false)}>Carrito</Link>
+                                        <Link to="/mis-compras" className="menu-item text-sm" onClick={() => setIsMenuOpen(false)}>Mis compras</Link>
                                         <button
                                             type="button"
                                             onClick={() => { setIsMenuOpen(false); setIsProfilePreviewOpen(true); }}

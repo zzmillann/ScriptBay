@@ -17,6 +17,7 @@ import Subastas from './pages/Subastas';
 import SubastaDetalle from './pages/SubastaDetalle';
 import CrearSubasta from './pages/CrearSubasta';
 import Notificaciones from './pages/Notificaciones';
+import MisCompras from './pages/MisCompras';
 import ParticlesBackground from './components/ParticlesBackground';
 import { WishlistProvider } from './context/WishlistContext';
 import ChatAssistant from './components/ChatAssistant';
@@ -78,6 +79,7 @@ const PageShell = () => {
                   <Route path="/subastas/crear" element={<CrearSubasta />} />
                   <Route path="/subastas/:id" element={<SubastaDetalle />} />
                   <Route path="/notificaciones" element={<Notificaciones />} />
+                  <Route path="/mis-compras" element={<MisCompras />} />
                 </Routes>
               </motion.div>
             </AnimatePresence>

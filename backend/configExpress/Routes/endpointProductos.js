@@ -619,7 +619,7 @@ objetoRouter.get('/MisCompras', async (req, res, next) => {
 
         const { data: compras, error } = await supabase
             .from('compras')
-            .select('*')
+            .select('*, productos(id, imagen, tipo, categoria)')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
 
