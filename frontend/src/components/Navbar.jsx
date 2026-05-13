@@ -1,17 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3, Gavel } from 'lucide-react';
+import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3, Gavel, Bell, ShoppingBag, Star, Info } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { clearSession, getSession, postAuth } from '../services/authClient';
 import ProfilePreviewModal from './ProfilePreviewModal';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useWishlist } from '../context/WishlistContext';
+import { getCountNoLeidas, getMisNotificaciones, postMarcarLeida } from '../services/notificacionesClient';
 
 const Navbar = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
     const [isProfilePreviewOpen, setIsProfilePreviewOpen] = useState(false);
     const [session, setSession] = useState(getSession());
+    const [notifCount, setNotifCount] = useState(0);
+    const [isNotifOpen, setIsNotifOpen] = useState(false);
+    const [notifItems, setNotifItems] = useState([]);
     const avatarMenuRef = useRef(null);
+    const notifRef = useRef(null);
     const navigate = useNavigate();
 
     const userData = session?.datosCliente || {};
@@ -20,6 +26,49 @@ const Navbar = () => {
     const avatarInitial = username.charAt(0).toUpperCase();
     const productsPath = '/profile?tab=productos';
     const { wishlist } = useWishlist();
+
+    const tiempoRelativo = (fecha) => {
+        const diff = Date.now() - new Date(fecha).getTime();
+        const min = Math.floor(diff / 60000);
+        if (min < 1) return 'ahora mismo';
+        if (min < 60) return `hace ${min} min`;
+        const h = Math.floor(min / 60);
+        if (h < 24) return `hace ${h}h`;
+        return `hace ${Math.floor(h / 24)}d`;
+    };
+
+    const textoNotif = (tipo, datos) => {
+        if (tipo === 'compra') return `Tu producto "${datos.titulo}" fue comprado por ${datos.precio} €`;
+        if (tipo === 'review') return datos.texto || 'Nueva reseña en tu producto';
+        return datos.mensaje || 'Notificación del sistema';
+    };
+
+    const iconoNotif = (tipo) => {
+        if (tipo === 'compra') return <ShoppingBag className="w-4 h-4 text-emerald-500" />;
+        if (tipo === 'review') return <Star className="w-4 h-4 text-yellow-500" />;
+        return <Info className="w-4 h-4 text-blue-500" />;
+    };
+
+    const linkNotif = (datos) => {
+        if (datos.productoId) return `/producto/${datos.productoId}`;
+        if (datos.subastaId) return `/subastas/${datos.subastaId}`;
+        return '/notificaciones';
+    };
+
+    const cargarCount = async () => {
+        if (!getSession()) return;
+        try {
+            const data = await getCountNoLeidas();
+            if (data.codigo === 0) setNotifCount(data.count);
+        } catch (_) {}
+    };
+
+    const cargarDropdown = async () => {
+        try {
+            const data = await getMisNotificaciones(1, '', '');
+            if (data.codigo === 0) setNotifItems(data.notificaciones.slice(0, 8));
+        } catch (_) {}
+    };
 
     useEffect(() => {
         const refreshSession = () => setSession(getSession());
@@ -32,13 +81,25 @@ const Navbar = () => {
     }, []);
 
     useEffect(() => {
+        cargarCount();
+        const intervalo = setInterval(cargarCount, 30000);
+        return () => clearInterval(intervalo);
+    }, [session]);
+
+    useEffect(() => {
         const handleClickOutside = (event) => {
             if (avatarMenuRef.current && !avatarMenuRef.current.contains(event.target)) {
                 setIsAvatarMenuOpen(false);
             }
+            if (notifRef.current && !notifRef.current.contains(event.target)) {
+                setIsNotifOpen(false);
+            }
         };
         const handleEscape = (event) => {
-            if (event.key === 'Escape') setIsAvatarMenuOpen(false);
+            if (event.key === 'Escape') {
+                setIsAvatarMenuOpen(false);
+                setIsNotifOpen(false);
+            }
         };
         window.addEventListener('mousedown', handleClickOutside);
         window.addEventListener('keydown', handleEscape);
@@ -153,6 +214,97 @@ const Navbar = () => {
                                             </span>
                                         )}
                                     </Link>
+
+                                    {/* Notificaciones */}
+                                    <div className="relative" ref={notifRef}>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsNotifOpen((prev) => {
+                                                    if (!prev) cargarDropdown();
+                                                    return !prev;
+                                                });
+                                            }}
+                                            className="icon-control relative flex items-center justify-center w-9 h-9"
+                                            aria-label="Notificaciones"
+                                        >
+                                            <Bell className="w-[18px] h-[18px] text-faint" />
+                                            <AnimatePresence>
+                                                {notifCount > 0 && (
+                                                    <motion.span
+                                                        key="badge"
+                                                        initial={{ scale: 0 }}
+                                                        animate={{ scale: [1, 1.2, 1] }}
+                                                        exit={{ scale: 0 }}
+                                                        transition={{ duration: 0.4, repeat: Infinity, repeatDelay: 3 }}
+                                                        className="absolute top-1 right-1 min-w-[16px] h-4 px-0.5 flex items-center justify-center text-[10px] font-bold bg-primary text-white rounded-full leading-none"
+                                                    >
+                                                        {notifCount > 99 ? '99+' : notifCount}
+                                                    </motion.span>
+                                                )}
+                                            </AnimatePresence>
+                                        </button>
+
+                                        <AnimatePresence>
+                                            {isNotifOpen && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                                                    transition={{ duration: 0.15 }}
+                                                    className="absolute right-0 mt-2.5 w-80 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-[#181818] shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_16px_40px_-8px_rgba(0,0,0,0.14)] dark:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.4),0_16px_40px_-8px_rgba(0,0,0,0.7)] overflow-hidden z-50"
+                                                >
+                                                    <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+                                                        <p className="text-sm font-semibold text-base-primary">Notificaciones</p>
+                                                        <Link
+                                                            to="/notificaciones"
+                                                            onClick={() => setIsNotifOpen(false)}
+                                                            className="text-xs text-primary hover:underline"
+                                                        >
+                                                            Ver todas
+                                                        </Link>
+                                                    </div>
+
+                                                    <div className="max-h-80 overflow-y-auto">
+                                                        {notifItems.length === 0 ? (
+                                                            <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                                                                <Bell className="w-8 h-8 text-zinc-300 dark:text-zinc-600" />
+                                                                <p className="text-xs text-faint">Sin notificaciones</p>
+                                                            </div>
+                                                        ) : (
+                                                            notifItems.map((n) => (
+                                                                <Link
+                                                                    key={n.id}
+                                                                    to={linkNotif(n.datos)}
+                                                                    onClick={() => setIsNotifOpen(false)}
+                                                                    onMouseEnter={() => {
+                                                                        if (!n.leida) {
+                                                                            postMarcarLeida(n.id).then(() => {
+                                                                                setNotifItems((prev) => prev.map((x) => x.id === n.id ? { ...x, leida: true } : x));
+                                                                                setNotifCount((prev) => Math.max(0, prev - 1));
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    className={`flex items-start gap-3 px-4 py-3 transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 ${!n.leida ? 'bg-zinc-50/60 dark:bg-zinc-800/30' : ''}`}
+                                                                >
+                                                                    <div className="mt-0.5 shrink-0 w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                                                                        {iconoNotif(n.tipo)}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-xs text-base-primary leading-snug line-clamp-2">{textoNotif(n.tipo, n.datos)}</p>
+                                                                        <p className="text-[11px] text-faint mt-0.5">{tiempoRelativo(n.created_at)}</p>
+                                                                    </div>
+                                                                    {!n.leida && (
+                                                                        <span className="mt-1.5 shrink-0 w-2 h-2 rounded-full bg-primary" />
+                                                                    )}
+                                                                </Link>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
 
                                     {/* Carrito */}
                                     <Link

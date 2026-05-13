@@ -1,6 +1,7 @@
 import express from 'express';
 import { supabase } from '../supabaseClient.js';
 import stripeService from '../servicios/stripeService.js';
+import { crearNotificacion } from '../servicios/notificacionHelper.js';
 
 const objetoRouter = express.Router();
 
@@ -339,6 +340,14 @@ objetoRouter.post('/PagarSubastaGanada', async (req, res) => {
             id_transaccion: idPaymentIntent
         });
 
+        await crearNotificacion(subasta.vendedor?.id, 'compra', {
+            titulo: subasta.productos?.titulo || 'Subasta ScriptBay',
+            precio: subasta.puja_ganadora,
+            compradorId: user.id,
+            subastaId,
+            metodo: 'Stripe (Subasta)'
+        });
+
         res.status(200).send({ codigo: 0, mensaje: 'Pago de subasta procesado correctamente', paymentIntentId: idPaymentIntent });
 
     } catch (error) {
@@ -425,6 +434,14 @@ objetoRouter.post('/CompraInmediataDirecta', async (req, res) => {
             precio: precioCi,
             metodo_pago: 'Stripe (Compra Inmediata)',
             id_transaccion: idPaymentIntent
+        });
+
+        await crearNotificacion(subasta.vendedor_id, 'compra', {
+            titulo: subasta.productos?.titulo || 'Subasta ScriptBay',
+            precio: precioCi,
+            compradorId: user.id,
+            subastaId,
+            metodo: 'Stripe (Compra Inmediata)'
         });
 
         res.status(200).send({ codigo: 0, mensaje: '¡Compra realizada! El producto es tuyo.', paymentIntentId: idPaymentIntent });

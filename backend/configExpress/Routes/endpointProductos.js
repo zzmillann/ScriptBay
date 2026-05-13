@@ -5,6 +5,7 @@ import stripeService from '../servicios/stripeService.js';
 import paypalService from '../servicios/paypalService.js';
 import { generarFacturaPDF } from '../servicios/facturaService.js';
 import mailjetService from '../servicios/mailjetService.js';
+import { crearNotificacion } from '../servicios/notificacionHelper.js';
 const objetoRouter = express.Router();
 
 const multerMiddleware = multer({
@@ -383,6 +384,23 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
         });
         console.log('Compra Stripe guardada en BD para el historial del usuario');
 
+        if (idProducto) {
+            const { data: productoVendedor } = await supabase
+                .from('productos')
+                .select('user_id')
+                .eq('id', idProducto)
+                .single();
+            if (productoVendedor?.user_id && productoVendedor.user_id !== user.id) {
+                await crearNotificacion(productoVendedor.user_id, 'compra', {
+                    titulo,
+                    precio,
+                    compradorId: user.id,
+                    productoId: idProducto,
+                    metodo: 'Stripe'
+                });
+            }
+        }
+
         const fechaPago = new Date();
         const numFactura = `SB-${fechaPago.getFullYear()}${String(fechaPago.getMonth() + 1).padStart(2, '0')}${String(fechaPago.getDate()).padStart(2, '0')}-${idPaymentIntent.slice(-6).toUpperCase()}`;
         generarFacturaPDF({
@@ -484,6 +502,23 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
                 id_transaccion: orderId
             });
             console.log('Compra PayPal guardada en BD para el historial del usuario');
+
+            if (idProducto) {
+                const { data: productoVendedor } = await supabase
+                    .from('productos')
+                    .select('user_id')
+                    .eq('id', idProducto)
+                    .single();
+                if (productoVendedor?.user_id && productoVendedor.user_id !== idUsuario) {
+                    await crearNotificacion(productoVendedor.user_id, 'compra', {
+                        titulo: decodeURIComponent(titulo || 'Producto ScriptBay'),
+                        precio: parseFloat(precio) || 0,
+                        compradorId: idUsuario,
+                        productoId: idProducto,
+                        metodo: 'PayPal'
+                    });
+                }
+            }
         }
 
         const emailPayPal = capturaResult?.payer?.email_address || null;

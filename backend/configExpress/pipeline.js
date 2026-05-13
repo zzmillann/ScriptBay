@@ -5,6 +5,7 @@ import endpointCliente from './Routes/endpointCliente.js';
 import endpointProductos from './Routes/endpointProductos.js';
 import endpointChatbot from './Routes/endpointChatbot.js';
 import endpointSubastas from './Routes/endpointSubastas.js';
+import endpointNotificaciones from './Routes/endpointNotificaciones.js';
 
 export default (serverExpress) => {
 
@@ -17,5 +18,6 @@ export default (serverExpress) => {
     serverExpress.use('/api/productos', endpointProductos);
     serverExpress.use('/api/chatbot', endpointChatbot);
     serverExpress.use('/api/subastas', endpointSubastas);
+    serverExpress.use('/api/notificaciones', endpointNotificaciones);
 
 };
