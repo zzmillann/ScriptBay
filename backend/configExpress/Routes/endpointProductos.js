@@ -799,7 +799,14 @@ objetoRouter.get('/Recomendados', async (req, res) => {
                 .map(([id]) => id);
 
             if (idsPopulares.length === 0) {
-                return res.status(200).send({ codigo: 0, recomendaciones: [] });
+                const { data: recientes } = await supabase
+                    .from('productos')
+                    .select('id, titulo, categoria, precio, imagen, tipo')
+                    .neq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .limit(8);
+                const fallback = (recientes || []).map(p => ({ ...p, score: 0, razon: 'Recién publicado en ScriptBay' }));
+                return res.status(200).send({ codigo: 0, recomendaciones: fallback });
             }
 
             const { data: productosPopulares } = await supabase
@@ -808,11 +815,22 @@ objetoRouter.get('/Recomendados', async (req, res) => {
                 .in('id', idsPopulares)
                 .neq('user_id', user.id);
 
-            const resultado = (productosPopulares || [])
+            const popularesFinales = (productosPopulares || [])
                 .map(p => ({ ...p, score: frecuenciaGlobal[p.id] || 0, razon: 'Popular en ScriptBay' }))
                 .sort((a, b) => b.score - a.score);
 
-            return res.status(200).send({ codigo: 0, recomendaciones: resultado });
+            if (popularesFinales.length === 0) {
+                const { data: recientes } = await supabase
+                    .from('productos')
+                    .select('id, titulo, categoria, precio, imagen, tipo')
+                    .neq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .limit(8);
+                const fallback = (recientes || []).map(p => ({ ...p, score: 0, razon: 'Recién publicado en ScriptBay' }));
+                return res.status(200).send({ codigo: 0, recomendaciones: fallback });
+            }
+
+            return res.status(200).send({ codigo: 0, recomendaciones: popularesFinales });
         }
 
         // 4. Candidatos: productos en esas categorías que el usuario NO ha comprado y no son suyos
@@ -829,7 +847,14 @@ objetoRouter.get('/Recomendados', async (req, res) => {
         const { data: candidatos } = await queryBuilder;
 
         if (!candidatos || candidatos.length === 0) {
-            return res.status(200).send({ codigo: 0, recomendaciones: [] });
+            const { data: recientes } = await supabase
+                .from('productos')
+                .select('id, titulo, categoria, precio, imagen, tipo')
+                .neq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(8);
+            const fallback = (recientes || []).map(p => ({ ...p, score: 0, razon: 'Recién publicado en ScriptBay' }));
+            return res.status(200).send({ codigo: 0, recomendaciones: fallback });
         }
 
         // 5. Collaborative filtering: cuántos otros usuarios compraron cada candidato
