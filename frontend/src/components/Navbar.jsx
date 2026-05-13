@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3, Gavel, Bell, ShoppingBag, Star, Info } from 'lucide-react';
+import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3, Gavel, Bell, ShoppingBag, Star, Info, Package } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clearSession, getSession, postAuth } from '../services/authClient';
@@ -40,12 +40,14 @@ const Navbar = () => {
     const textoNotif = (tipo, datos) => {
         if (tipo === 'compra') return `Tu producto "${datos.titulo}" fue comprado por ${datos.precio} €`;
         if (tipo === 'review') return datos.texto || 'Nueva reseña en tu producto';
+        if (tipo === 'publicaciones') return `${datos.vendedorNombre || 'Un usuario'} publicó: "${datos.titulo}"`;
         return datos.mensaje || 'Notificación del sistema';
     };
 
     const iconoNotif = (tipo) => {
         if (tipo === 'compra') return <ShoppingBag className="w-4 h-4 text-emerald-500" />;
         if (tipo === 'review') return <Star className="w-4 h-4 text-yellow-500" />;
+        if (tipo === 'publicaciones') return <Package className="w-4 h-4 text-purple-500" />;
         return <Info className="w-4 h-4 text-blue-500" />;
     };
 

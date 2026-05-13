@@ -38,7 +38,7 @@ objetoRouter.post('/GuardarProducto',
         const imagenFinal = req.files?.imagen?.[0] ? bufferADataUrl(req.files.imagen[0]) : (imagen || null);
         const archivoFinal = req.files?.archivo?.[0] ? bufferADataUrl(req.files.archivo[0]) : (archivo || null);
 
-        const { error } = await supabase
+        const { data: nuevoProducto, error } = await supabase
             .from('productos')
             .insert({
                 user_id: user.id,
@@ -53,9 +53,38 @@ objetoRouter.post('/GuardarProducto',
                 email: email || null,
                 github: github || null,
                 linkedin: linkedin || null
-            });
+            })
+            .select('id')
+            .single();
 
         if (error) throw error;
+
+        const { data: perfilVendedor } = await supabase
+            .from('perfiles')
+            .select('nombre')
+            .eq('id', user.id)
+            .single();
+
+        const { data: otrosUsuarios } = await supabase
+            .from('perfiles')
+            .select('id')
+            .neq('id', user.id);
+
+        if (otrosUsuarios && otrosUsuarios.length > 0) {
+            await supabase.from('notificaciones').insert(
+                otrosUsuarios.map((p) => ({
+                    user_id: p.id,
+                    tipo: 'publicaciones',
+                    datos: {
+                        titulo,
+                        tipo,
+                        categoria: categoria || null,
+                        productoId: nuevoProducto.id,
+                        vendedorNombre: perfilVendedor?.nombre || 'Un usuario'
+                    }
+                }))
+            );
+        }
 
         res.status(200).send({
             codigo: 0,
