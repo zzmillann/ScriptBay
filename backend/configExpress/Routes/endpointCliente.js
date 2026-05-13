@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient.js';
 import mailjetService from '../servicios/mailjetService.js';
 const objetoRouter = express.Router();
@@ -282,6 +283,39 @@ objetoRouter.post('/PerfilUsuario', async (req, res, next) => {
             codigo: 2,
             mensaje: error.message
         });
+    }
+});
+
+objetoRouter.post('/EliminarCuenta', async (req, res, next) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token) throw new Error('No autorizado');
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError) throw authError;
+
+        await supabase.from('notificaciones').delete().eq('user_id', user.id);
+        await supabase.from('compras').delete().eq('user_id', user.id);
+        await supabase.from('productos').delete().eq('user_id', user.id);
+        await supabase.from('perfiles').delete().eq('id', user.id);
+
+        const serviceRoleKey = process.env.SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (serviceRoleKey) {
+            const adminSupabase = createClient(process.env.PROJECT_URL, serviceRoleKey, {
+                auth: { persistSession: false, autoRefreshToken: false }
+            });
+            await adminSupabase.auth.admin.deleteUser(user.id);
+            console.log('[EliminarCuenta] Usuario eliminado completamente de auth:', user.id);
+        } else {
+            console.log('[EliminarCuenta] Sin SERVICE_ROLE - datos eliminados, registro auth pendiente:', user.id);
+        }
+
+        res.status(200).send({ codigo: 0, mensaje: 'Cuenta eliminada correctamente' });
+
+    } catch (error) {
+        console.log('ERROR en /EliminarCuenta:', error);
+        res.status(200).send({ codigo: 1, mensaje: error.message });
     }
 });
 

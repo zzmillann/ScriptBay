@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3, Gavel, Bell, ShoppingBag, Star, Info, Package } from 'lucide-react';
+import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3, Gavel, Bell, ShoppingBag, Star, Info, Package, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clearSession, getSession, postAuth } from '../services/authClient';
@@ -12,6 +12,7 @@ const Navbar = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
     const [isProfilePreviewOpen, setIsProfilePreviewOpen] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [session, setSession] = useState(getSession());
     const [notifCount, setNotifCount] = useState(0);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -123,6 +124,27 @@ const Navbar = () => {
             navigate('/login');
         } catch (error) {
             console.error('[AUTH TRACE] error de red en logout', error);
+        }
+    };
+
+    const handleEliminarCuenta = async () => {
+        try {
+            const session = getSession();
+            const token = session?.accessToken;
+            if (!token) return;
+            const res = await fetch('http://localhost:3000/api/cliente/EliminarCuenta', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (data.codigo !== 0) throw new Error(data.mensaje);
+            setIsAvatarMenuOpen(false);
+            setShowDeleteConfirm(false);
+            clearSession();
+            navigate('/');
+        } catch (error) {
+            console.error('[EliminarCuenta] error:', error);
+            setShowDeleteConfirm(false);
         }
     };
 
@@ -410,6 +432,40 @@ const Navbar = () => {
                                                         Cerrar sesión
                                                     </button>
                                                 </div>
+
+                                                {/* Eliminar cuenta */}
+                                                <div className="p-1.5 pt-0">
+                                                    {!showDeleteConfirm ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowDeleteConfirm(true)}
+                                                            className="flex items-center gap-2.5 w-full text-left rounded-xl px-3 py-2 text-sm text-zinc-400 dark:text-zinc-500 transition-all duration-150 hover:bg-red-50/80 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400"
+                                                        >
+                                                            <Trash2 className="w-4 h-4 shrink-0" />
+                                                            Eliminar cuenta
+                                                        </button>
+                                                    ) : (
+                                                        <div className="rounded-xl border border-red-300 dark:border-red-800/60 bg-red-50 dark:bg-red-950/40 px-3 py-2.5">
+                                                            <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-2">¿Eliminar cuenta permanentemente?</p>
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleEliminarCuenta}
+                                                                    className="flex-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1.5 transition"
+                                                                >
+                                                                    Confirmar
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowDeleteConfirm(false)}
+                                                                    className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-bold py-1.5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                                                                >
+                                                                    Cancelar
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -461,6 +517,13 @@ const Navbar = () => {
                                             className="menu-item text-sm text-left text-zinc-500 dark:text-white/40 hover:text-red-600 dark:hover:text-primary"
                                         >
                                             Cerrar sesión
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setIsMenuOpen(false); setShowDeleteConfirm(true); setIsAvatarMenuOpen(true); }}
+                                            className="menu-item text-sm text-left text-zinc-500 dark:text-white/40 hover:text-red-600 dark:hover:text-primary"
+                                        >
+                                            Eliminar cuenta
                                         </button>
                                     </>
                                 )}
