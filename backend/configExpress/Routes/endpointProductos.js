@@ -5,6 +5,7 @@ import stripeService from '../servicios/stripeService.js';
 import paypalService from '../servicios/paypalService.js';
 import { generarFacturaPDF } from '../servicios/facturaService.js';
 import mailjetService from '../servicios/mailjetService.js';
+import { crearNotificacion } from '../servicios/notificacionHelper.js';
 const objetoRouter = express.Router();
 
 const multerMiddleware = multer({
@@ -37,7 +38,7 @@ objetoRouter.post('/GuardarProducto',
         const imagenFinal = req.files?.imagen?.[0] ? bufferADataUrl(req.files.imagen[0]) : (imagen || null);
         const archivoFinal = req.files?.archivo?.[0] ? bufferADataUrl(req.files.archivo[0]) : (archivo || null);
 
-        const { error } = await supabase
+        const { data: nuevoProducto, error } = await supabase
             .from('productos')
             .insert({
                 user_id: user.id,
@@ -52,9 +53,38 @@ objetoRouter.post('/GuardarProducto',
                 email: email || null,
                 github: github || null,
                 linkedin: linkedin || null
-            });
+            })
+            .select('id')
+            .single();
 
         if (error) throw error;
+
+        const { data: perfilVendedor } = await supabase
+            .from('perfiles')
+            .select('nombre')
+            .eq('id', user.id)
+            .single();
+
+        const { data: otrosUsuarios } = await supabase
+            .from('perfiles')
+            .select('id')
+            .neq('id', user.id);
+
+        if (otrosUsuarios && otrosUsuarios.length > 0) {
+            await supabase.from('notificaciones').insert(
+                otrosUsuarios.map((p) => ({
+                    user_id: p.id,
+                    tipo: 'publicaciones',
+                    datos: {
+                        titulo,
+                        tipo,
+                        categoria: categoria || null,
+                        productoId: nuevoProducto.id,
+                        vendedorNombre: perfilVendedor?.nombre || 'Un usuario'
+                    }
+                }))
+            );
+        }
 
         res.status(200).send({
             codigo: 0,
@@ -383,6 +413,23 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
         });
         console.log('Compra Stripe guardada en BD para el historial del usuario');
 
+        if (idProducto) {
+            const { data: productoVendedor } = await supabase
+                .from('productos')
+                .select('user_id')
+                .eq('id', idProducto)
+                .single();
+            if (productoVendedor?.user_id && productoVendedor.user_id !== user.id) {
+                await crearNotificacion(productoVendedor.user_id, 'compra', {
+                    titulo,
+                    precio,
+                    compradorId: user.id,
+                    productoId: idProducto,
+                    metodo: 'Stripe'
+                });
+            }
+        }
+
         const fechaPago = new Date();
         const numFactura = `SB-${fechaPago.getFullYear()}${String(fechaPago.getMonth() + 1).padStart(2, '0')}${String(fechaPago.getDate()).padStart(2, '0')}-${idPaymentIntent.slice(-6).toUpperCase()}`;
         generarFacturaPDF({
@@ -484,6 +531,23 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
                 id_transaccion: orderId
             });
             console.log('Compra PayPal guardada en BD para el historial del usuario');
+
+            if (idProducto) {
+                const { data: productoVendedor } = await supabase
+                    .from('productos')
+                    .select('user_id')
+                    .eq('id', idProducto)
+                    .single();
+                if (productoVendedor?.user_id && productoVendedor.user_id !== idUsuario) {
+                    await crearNotificacion(productoVendedor.user_id, 'compra', {
+                        titulo: decodeURIComponent(titulo || 'Producto ScriptBay'),
+                        precio: parseFloat(precio) || 0,
+                        compradorId: idUsuario,
+                        productoId: idProducto,
+                        metodo: 'PayPal'
+                    });
+                }
+            }
         }
 
         const emailPayPal = capturaResult?.payer?.email_address || null;
@@ -555,7 +619,7 @@ objetoRouter.get('/MisCompras', async (req, res, next) => {
 
         const { data: compras, error } = await supabase
             .from('compras')
-            .select('*')
+            .select('*, productos(id, imagen, tipo, categoria)')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
 
@@ -735,7 +799,14 @@ objetoRouter.get('/Recomendados', async (req, res) => {
                 .map(([id]) => id);
 
             if (idsPopulares.length === 0) {
-                return res.status(200).send({ codigo: 0, recomendaciones: [] });
+                const { data: recientes } = await supabase
+                    .from('productos')
+                    .select('id, titulo, categoria, precio, imagen, tipo')
+                    .neq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .limit(8);
+                const fallback = (recientes || []).map(p => ({ ...p, score: 0, razon: 'Recién publicado en ScriptBay' }));
+                return res.status(200).send({ codigo: 0, recomendaciones: fallback });
             }
 
             const { data: productosPopulares } = await supabase
@@ -744,11 +815,22 @@ objetoRouter.get('/Recomendados', async (req, res) => {
                 .in('id', idsPopulares)
                 .neq('user_id', user.id);
 
-            const resultado = (productosPopulares || [])
+            const popularesFinales = (productosPopulares || [])
                 .map(p => ({ ...p, score: frecuenciaGlobal[p.id] || 0, razon: 'Popular en ScriptBay' }))
                 .sort((a, b) => b.score - a.score);
 
-            return res.status(200).send({ codigo: 0, recomendaciones: resultado });
+            if (popularesFinales.length === 0) {
+                const { data: recientes } = await supabase
+                    .from('productos')
+                    .select('id, titulo, categoria, precio, imagen, tipo')
+                    .neq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .limit(8);
+                const fallback = (recientes || []).map(p => ({ ...p, score: 0, razon: 'Recién publicado en ScriptBay' }));
+                return res.status(200).send({ codigo: 0, recomendaciones: fallback });
+            }
+
+            return res.status(200).send({ codigo: 0, recomendaciones: popularesFinales });
         }
 
         // 4. Candidatos: productos en esas categorías que el usuario NO ha comprado y no son suyos
@@ -765,7 +847,14 @@ objetoRouter.get('/Recomendados', async (req, res) => {
         const { data: candidatos } = await queryBuilder;
 
         if (!candidatos || candidatos.length === 0) {
-            return res.status(200).send({ codigo: 0, recomendaciones: [] });
+            const { data: recientes } = await supabase
+                .from('productos')
+                .select('id, titulo, categoria, precio, imagen, tipo')
+                .neq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(8);
+            const fallback = (recientes || []).map(p => ({ ...p, score: 0, razon: 'Recién publicado en ScriptBay' }));
+            return res.status(200).send({ codigo: 0, recomendaciones: fallback });
         }
 
         // 5. Collaborative filtering: cuántos otros usuarios compraron cada candidato

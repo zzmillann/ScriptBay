@@ -58,5 +58,18 @@ CREATE TABLE IF NOT EXISTS pujas (
 
 -- Índices para consultas frecuentes
 CREATE INDEX IF NOT EXISTS idx_subastas_estado ON subastas(estado);
+
+-- ── NOTIFICACIONES ────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS notificaciones (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  tipo text NOT NULL,
+  leida boolean NOT NULL DEFAULT false,
+  datos jsonb NOT NULL DEFAULT '{}',
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notificaciones_user_id ON notificaciones(user_id);
+CREATE INDEX IF NOT EXISTS idx_notificaciones_leida ON notificaciones(leida);
 CREATE INDEX IF NOT EXISTS idx_subastas_fecha_fin ON subastas(fecha_fin);
 CREATE INDEX IF NOT EXISTS idx_pujas_subasta ON pujas(subasta_id, created_at DESC);

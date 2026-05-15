@@ -1,17 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3, Gavel } from 'lucide-react';
+import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3, Gavel, Bell, ShoppingBag, Star, Info, Package, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { clearSession, getSession, postAuth } from '../services/authClient';
 import ProfilePreviewModal from './ProfilePreviewModal';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useWishlist } from '../context/WishlistContext';
+import { getCountNoLeidas, getMisNotificaciones, postMarcarLeida } from '../services/notificacionesClient';
 
 const Navbar = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
     const [isProfilePreviewOpen, setIsProfilePreviewOpen] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [session, setSession] = useState(getSession());
+    const [notifCount, setNotifCount] = useState(0);
+    const [isNotifOpen, setIsNotifOpen] = useState(false);
+    const [notifItems, setNotifItems] = useState([]);
     const avatarMenuRef = useRef(null);
+    const notifRef = useRef(null);
     const navigate = useNavigate();
 
     const userData = session?.datosCliente || {};
@@ -20,6 +27,51 @@ const Navbar = () => {
     const avatarInitial = username.charAt(0).toUpperCase();
     const productsPath = '/profile?tab=productos';
     const { wishlist } = useWishlist();
+
+    const tiempoRelativo = (fecha) => {
+        const diff = Date.now() - new Date(fecha).getTime();
+        const min = Math.floor(diff / 60000);
+        if (min < 1) return 'ahora mismo';
+        if (min < 60) return `hace ${min} min`;
+        const h = Math.floor(min / 60);
+        if (h < 24) return `hace ${h}h`;
+        return `hace ${Math.floor(h / 24)}d`;
+    };
+
+    const textoNotif = (tipo, datos) => {
+        if (tipo === 'compra') return `Tu producto "${datos.titulo}" fue comprado por ${datos.precio} €`;
+        if (tipo === 'review') return datos.texto || 'Nueva reseña en tu producto';
+        if (tipo === 'publicaciones') return `${datos.vendedorNombre || 'Un usuario'} publicó: "${datos.titulo}"`;
+        return datos.mensaje || 'Notificación del sistema';
+    };
+
+    const iconoNotif = (tipo) => {
+        if (tipo === 'compra') return <ShoppingBag className="w-4 h-4 text-emerald-500" />;
+        if (tipo === 'review') return <Star className="w-4 h-4 text-yellow-500" />;
+        if (tipo === 'publicaciones') return <Package className="w-4 h-4 text-purple-500" />;
+        return <Info className="w-4 h-4 text-blue-500" />;
+    };
+
+    const linkNotif = (datos) => {
+        if (datos.productoId) return `/producto/${datos.productoId}`;
+        if (datos.subastaId) return `/subastas/${datos.subastaId}`;
+        return '/notificaciones';
+    };
+
+    const cargarCount = async () => {
+        if (!getSession()) return;
+        try {
+            const data = await getCountNoLeidas();
+            if (data.codigo === 0) setNotifCount(data.count);
+        } catch (_) {}
+    };
+
+    const cargarDropdown = async () => {
+        try {
+            const data = await getMisNotificaciones(1, '', '');
+            if (data.codigo === 0) setNotifItems(data.notificaciones.slice(0, 8));
+        } catch (_) {}
+    };
 
     useEffect(() => {
         const refreshSession = () => setSession(getSession());
@@ -32,13 +84,25 @@ const Navbar = () => {
     }, []);
 
     useEffect(() => {
+        cargarCount();
+        const intervalo = setInterval(cargarCount, 30000);
+        return () => clearInterval(intervalo);
+    }, [session]);
+
+    useEffect(() => {
         const handleClickOutside = (event) => {
             if (avatarMenuRef.current && !avatarMenuRef.current.contains(event.target)) {
                 setIsAvatarMenuOpen(false);
             }
+            if (notifRef.current && !notifRef.current.contains(event.target)) {
+                setIsNotifOpen(false);
+            }
         };
         const handleEscape = (event) => {
-            if (event.key === 'Escape') setIsAvatarMenuOpen(false);
+            if (event.key === 'Escape') {
+                setIsAvatarMenuOpen(false);
+                setIsNotifOpen(false);
+            }
         };
         window.addEventListener('mousedown', handleClickOutside);
         window.addEventListener('keydown', handleEscape);
@@ -60,6 +124,27 @@ const Navbar = () => {
             navigate('/login');
         } catch (error) {
             console.error('[AUTH TRACE] error de red en logout', error);
+        }
+    };
+
+    const handleEliminarCuenta = async () => {
+        try {
+            const session = getSession();
+            const token = session?.accessToken;
+            if (!token) return;
+            const res = await fetch('http://localhost:3000/api/cliente/EliminarCuenta', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (data.codigo !== 0) throw new Error(data.mensaje);
+            setIsAvatarMenuOpen(false);
+            setShowDeleteConfirm(false);
+            clearSession();
+            navigate('/');
+        } catch (error) {
+            console.error('[EliminarCuenta] error:', error);
+            setShowDeleteConfirm(false);
         }
     };
 
@@ -154,14 +239,104 @@ const Navbar = () => {
                                         )}
                                     </Link>
 
-                                    {/* Carrito */}
+                                    {/* Notificaciones */}
+                                    <div className="relative" ref={notifRef}>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsNotifOpen((prev) => {
+                                                    if (!prev) cargarDropdown();
+                                                    return !prev;
+                                                });
+                                            }}
+                                            className="icon-control relative flex items-center justify-center w-9 h-9"
+                                            aria-label="Notificaciones"
+                                        >
+                                            <Bell className="w-[18px] h-[18px] text-faint" />
+                                            <AnimatePresence>
+                                                {notifCount > 0 && (
+                                                    <motion.span
+                                                        key="badge"
+                                                        initial={{ scale: 0 }}
+                                                        animate={{ scale: [1, 1.2, 1] }}
+                                                        exit={{ scale: 0 }}
+                                                        transition={{ duration: 0.4, repeat: Infinity, repeatDelay: 3 }}
+                                                        className="absolute top-1 right-1 min-w-[16px] h-4 px-0.5 flex items-center justify-center text-[10px] font-bold bg-primary text-white rounded-full leading-none"
+                                                    >
+                                                        {notifCount > 99 ? '99+' : notifCount}
+                                                    </motion.span>
+                                                )}
+                                            </AnimatePresence>
+                                        </button>
+
+                                        <AnimatePresence>
+                                            {isNotifOpen && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                                                    transition={{ duration: 0.15 }}
+                                                    className="absolute right-0 mt-2.5 w-80 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-[#181818] shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_16px_40px_-8px_rgba(0,0,0,0.14)] dark:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.4),0_16px_40px_-8px_rgba(0,0,0,0.7)] overflow-hidden z-50"
+                                                >
+                                                    <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+                                                        <p className="text-sm font-semibold text-base-primary">Notificaciones</p>
+                                                        <Link
+                                                            to="/notificaciones"
+                                                            onClick={() => setIsNotifOpen(false)}
+                                                            className="text-xs text-primary hover:underline"
+                                                        >
+                                                            Ver todas
+                                                        </Link>
+                                                    </div>
+
+                                                    <div className="max-h-80 overflow-y-auto">
+                                                        {notifItems.length === 0 ? (
+                                                            <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                                                                <Bell className="w-8 h-8 text-zinc-300 dark:text-zinc-600" />
+                                                                <p className="text-xs text-faint">Sin notificaciones</p>
+                                                            </div>
+                                                        ) : (
+                                                            notifItems.map((n) => (
+                                                                <Link
+                                                                    key={n.id}
+                                                                    to={linkNotif(n.datos)}
+                                                                    onClick={() => setIsNotifOpen(false)}
+                                                                    onMouseEnter={() => {
+                                                                        if (!n.leida) {
+                                                                            postMarcarLeida(n.id).then(() => {
+                                                                                setNotifItems((prev) => prev.map((x) => x.id === n.id ? { ...x, leida: true } : x));
+                                                                                setNotifCount((prev) => Math.max(0, prev - 1));
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    className={`flex items-start gap-3 px-4 py-3 transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 ${!n.leida ? 'bg-zinc-50/60 dark:bg-zinc-800/30' : ''}`}
+                                                                >
+                                                                    <div className="mt-0.5 shrink-0 w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                                                                        {iconoNotif(n.tipo)}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-xs text-base-primary leading-snug line-clamp-2">{textoNotif(n.tipo, n.datos)}</p>
+                                                                        <p className="text-[11px] text-faint mt-0.5">{tiempoRelativo(n.created_at)}</p>
+                                                                    </div>
+                                                                    {!n.leida && (
+                                                                        <span className="mt-1.5 shrink-0 w-2 h-2 rounded-full bg-primary" />
+                                                                    )}
+                                                                </Link>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+
+                                    {/* Mis Compras */}
                                     <Link
-                                        to="/cart"
+                                        to="/mis-compras"
                                         className="icon-control relative flex items-center justify-center w-9 h-9"
-                                        aria-label="Carrito de compras"
+                                        aria-label="Mis compras"
                                     >
                                         <ShoppingCart className="w-[18px] h-[18px] text-faint" />
-                                        <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-primary rounded-full" />
                                     </Link>
 
                                     {/* Avatar + dropdown */}
@@ -226,6 +401,14 @@ const Navbar = () => {
                                                         Dashboard ventas
                                                     </Link>
                                                     <Link
+                                                        to="/profile?view=compras"
+                                                        onClick={() => setIsAvatarMenuOpen(false)}
+                                                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 transition-all duration-150 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-zinc-100"
+                                                    >
+                                                        <ShoppingBag className="w-4 h-4 shrink-0 text-faint" />
+                                                        Mis compras
+                                                    </Link>
+                                                    <Link
                                                         to="/subastas"
                                                         onClick={() => setIsAvatarMenuOpen(false)}
                                                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 transition-all duration-150 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -248,6 +431,40 @@ const Navbar = () => {
                                                         <LogOut className="w-4 h-4 shrink-0" />
                                                         Cerrar sesión
                                                     </button>
+                                                </div>
+
+                                                {/* Eliminar cuenta */}
+                                                <div className="p-1.5 pt-0">
+                                                    {!showDeleteConfirm ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowDeleteConfirm(true)}
+                                                            className="flex items-center gap-2.5 w-full text-left rounded-xl px-3 py-2 text-sm text-zinc-400 dark:text-zinc-500 transition-all duration-150 hover:bg-red-50/80 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400"
+                                                        >
+                                                            <Trash2 className="w-4 h-4 shrink-0" />
+                                                            Eliminar cuenta
+                                                        </button>
+                                                    ) : (
+                                                        <div className="rounded-xl border border-red-300 dark:border-red-800/60 bg-red-50 dark:bg-red-950/40 px-3 py-2.5">
+                                                            <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-2">¿Eliminar cuenta permanentemente?</p>
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleEliminarCuenta}
+                                                                    className="flex-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1.5 transition"
+                                                                >
+                                                                    Confirmar
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowDeleteConfirm(false)}
+                                                                    className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-bold py-1.5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                                                                >
+                                                                    Cancelar
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
@@ -283,7 +500,7 @@ const Navbar = () => {
                                 {session && (
                                     <>
                                         <Link to="/create-product" className="menu-item text-sm" onClick={() => setIsMenuOpen(false)}>Publicar producto</Link>
-                                        <Link to="/cart" className="menu-item text-sm" onClick={() => setIsMenuOpen(false)}>Carrito</Link>
+                                        <Link to="/mis-compras" className="menu-item text-sm" onClick={() => setIsMenuOpen(false)}>Mis compras</Link>
                                         <button
                                             type="button"
                                             onClick={() => { setIsMenuOpen(false); setIsProfilePreviewOpen(true); }}
@@ -300,6 +517,13 @@ const Navbar = () => {
                                             className="menu-item text-sm text-left text-zinc-500 dark:text-white/40 hover:text-red-600 dark:hover:text-primary"
                                         >
                                             Cerrar sesión
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setIsMenuOpen(false); setShowDeleteConfirm(true); setIsAvatarMenuOpen(true); }}
+                                            className="menu-item text-sm text-left text-zinc-500 dark:text-white/40 hover:text-red-600 dark:hover:text-primary"
+                                        >
+                                            Eliminar cuenta
                                         </button>
                                     </>
                                 )}
