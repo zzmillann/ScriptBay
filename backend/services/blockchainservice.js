@@ -22,15 +22,24 @@ const publicClient = createPublicClient({
 
 
 export async function registroCompraStripe(
+    usuarioDestino,
     idCustomer, idCard, cantidad, moneda, descripcion, confirmacion,
     metodoPagoAutomatico, metodoPago, pagoEfectuado, fecha, hora, idPaymentIntent
 ) {
+    const contador = await publicClient.readContract({
+        address: process.env.CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "contadorLicencias",
+    });
+    const tokenId = Number(contador) + 1;
+
     const { request } = await publicClient.simulateContract(
         {
             address: process.env.CONTRACT_ADDRESS,
             abi: CONTRACT_ABI,
-            functionName: "RegistroCompraStripe",
+            functionName: "comprarYMintear",
             args: [
+                usuarioDestino,
                 idCustomer, idCard, BigInt(cantidad), moneda, descripcion, confirmacion,
                 metodoPagoAutomatico, metodoPago, pagoEfectuado, BigInt(fecha), BigInt(hora), idPaymentIntent
             ],
@@ -39,7 +48,7 @@ export async function registroCompraStripe(
     )
 
     const tx = await walletClient.writeContract(request)
-    return tx
+    return { tx, tokenId }
 }
 
 export async function obtenerCompras() {
@@ -47,7 +56,7 @@ export async function obtenerCompras() {
         {
             address: process.env.CONTRACT_ADDRESS,
             abi: CONTRACT_ABI,
-            functionName: "ObtenerCompras",
+            functionName: "obtenerTodasLasCompras",
             args: [],
         }
     )

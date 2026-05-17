@@ -89,7 +89,7 @@ export default {
             return null;
         }
     },
-    Stage3_CreateChargeForCustomer: async (idCustomer, idCard, importe, descripcion) => {
+    Stage3_CreateChargeForCustomer: async (idCustomer, idCard, importe, descripcion, usuarioDestino) => {
         try {
             //https://docs.stripe.com/api/payment_intents/create?lang=curl
             const bodyPaymentIntent = {
@@ -124,13 +124,14 @@ export default {
 
 
             const compraBlockchain = await registroCompraStripe(
+                usuarioDestino, // <-- PASAMOS LA WALLET A LA BLOCKCHAIN
                 idCustomer, idCard, importe, 'eur', descripcion, true,
                 true, 'card', true, fecha, hora, datosPaymentIntent.id
             );
 
             console.log("Compra Blockchain: ", compraBlockchain);
 
-            return { idPaymentIntent: datosPaymentIntent.id, compraBlockchain };
+            return { idPaymentIntent: datosPaymentIntent.id, compraBlockchain: compraBlockchain.tx, tokenId: compraBlockchain.tokenId };
 
 
 

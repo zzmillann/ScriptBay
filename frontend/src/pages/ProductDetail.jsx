@@ -10,6 +10,9 @@ import { postIniciarPagoPayPal } from '../services/paypalClient';
 import { getSession } from '../services/authClient';
 import { normalizeImageUrl } from '../utils/imageUrl';
 import { buildPurchaseExperience, formatEthPrice, formatEurPrice } from '../data/purchaseExperience';
+import { useAccount } from 'wagmi';
+
+
 
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -35,6 +38,7 @@ const sectionBaseClass =
 const ProductDetail = () => {
   const { id } = useParams();
   const location = useLocation();
+  const { address } = useAccount();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [session] = useState(getSession());
@@ -43,6 +47,7 @@ const ProductDetail = () => {
   const [estadoPago, setEstadoPago] = useState('idle');
   const [mensajePago, setMensajePago] = useState('');
   const [hashBlockchain, setHashBlockchain] = useState('');
+  const [tokenIdBlockchain, setTokenIdBlockchain] = useState('');
   const [metodoPago, setMetodoPago] = useState('visa');
   const [tipoPago, setTipoPago] = useState('stripe'); // 'stripe' | 'paypal'
   const [qrOpen, setQrOpen] = useState(false);
@@ -62,7 +67,7 @@ const ProductDetail = () => {
       try {
         // 1. Intentar buscar en locales (por si es un ID numérico de demo)
         const local = getProductById(id);
-        
+
         if (local) {
           setProduct(local);
           setLoading(false);
@@ -76,7 +81,7 @@ const ProductDetail = () => {
         if (data.codigo === 0 && data.producto) {
           const p = data.producto;
           const v = p.perfiles;
-          
+
           setProduct({
             id: p.id,
             user_id: p.user_id,
@@ -91,9 +96,9 @@ const ProductDetail = () => {
             characteristics: ['Verificado por ScriptBay', 'Código original', 'Soporte del autor'],
             includes: ['Código fuente', 'Documentación básica'],
             requirements: ['Entorno Node.js', 'Conexión a internet'],
-            vendor: { 
-              name: v?.nombre || 'Usuario Market', 
-              avatar: v?.nombre ? v.nombre.substring(0,2).toUpperCase() : 'UM' 
+            vendor: {
+              name: v?.nombre || 'Usuario Market',
+              avatar: v?.nombre ? v.nombre.substring(0, 2).toUpperCase() : 'UM'
             }
           });
         }
@@ -124,6 +129,7 @@ const ProductDetail = () => {
     setEstadoPago('idle');
     setMensajePago('');
     setHashBlockchain('');
+    setTokenIdBlockchain('');
     setMetodoPago('visa');
     setTipoPago('stripe');
   };
@@ -165,7 +171,7 @@ const ProductDetail = () => {
     };
     window.addEventListener('message', onMessage);
 
-    
+
     const popupWatcher = setInterval(() => {
       if (popup.closed) {
         clearInterval(popupWatcher);
@@ -177,13 +183,19 @@ const ProductDetail = () => {
   };
 
   const handleConfirmarPago = async () => {
+    if (!address) {
+      setEstadoPago('error');
+      setMensajePago('¡Espera! Conecta tu wallet arriba a la derecha para que podamos enviarte la licencia NFT tras el pago.');
+      return;
+    }
     setEstadoPago('cargando');
     console.log("[ScriptBay] Iniciando pago - Producto:", product.title, "| Precio:", product.price, "EUR");
-    const resultado = await postPagarProducto(product.title, product.price, metodoPago, product.id);
+    const resultado = await postPagarProducto(product.title, product.price, metodoPago, product.id, address);
     if (resultado.codigo === 0) {
       setEstadoPago('ok');
       setMensajePago(resultado.mensaje);
       setHashBlockchain(resultado.blockchainHash);
+      setTokenIdBlockchain(resultado.tokenId);
       console.log("[ScriptBay] Pago realizado con exito - PaymentIntent:", resultado.paymentIntentId);
       console.log("[ScriptBay] Hash de Blockchain:", resultado.blockchainHash);
     } else {
@@ -231,11 +243,10 @@ const ProductDetail = () => {
     type: purchaseContext?.type || product.category,
     category: product.category
   });
-  const sectionClass = `${sectionBaseClass} ${
-    isService
+  const sectionClass = `${sectionBaseClass} ${isService
       ? 'hover:border-blue-400/30 hover:bg-blue-50 dark:hover:border-blue-500/20 dark:hover:bg-blue-500/5 hover:shadow-[0_12px_30px_-24px_rgba(59,130,246,0.20)] dark:hover:shadow-[0_12px_30px_-24px_rgba(59,130,246,0.35)]'
       : 'hover:border-violet-400/30 hover:bg-violet-50 dark:hover:border-violet-500/20 dark:hover:bg-violet-500/5 hover:shadow-[0_12px_30px_-24px_rgba(168,85,247,0.15)] dark:hover:shadow-[0_12px_30px_-24px_rgba(168,85,247,0.35)]'
-  }`;
+    }`;
   const accentBadgeClass = isService
     ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-400/35 dark:bg-blue-500/10 dark:text-blue-200'
     : 'border-violet-400/50 bg-violet-100 text-violet-700 dark:border-violet-400/35 dark:bg-violet-500/10 dark:text-violet-200';
@@ -278,441 +289,455 @@ const ProductDetail = () => {
         <div className="pointer-events-none absolute h-[460px] w-[460px] rounded-full blur-3xl transition-all duration-500" style={ambientGlowStyle} />
 
         <div className="relative z-10 space-y-10">
-        <motion.div variants={itemVariants}>
-          <Link
-            to={backTarget}
-            className="btn-secondary text-sm hover:scale-[1.02]"
-          >
-            <ArrowLeft className="h-4 w-4" /> {backLabel}
-          </Link>
-        </motion.div>
-
-        <div className="grid gap-8 lg:grid-cols-2">
-          <motion.div layoutId={`product-image-${product.id}`} variants={itemVariants} className={`relative overflow-hidden rounded-3xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-black/30 ${imageShadowClass}`}>
-            <img
-              src={product.image}
-              alt={product.title}
-              className="h-full min-h-[360px] w-full object-cover transition-transform duration-500 hover:scale-105"
-            />
-            <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/55 via-transparent to-transparent" />
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="space-y-6">
-            <div className={`${sectionClass} ${panelHoverClass}`}>
-              <div className="mb-4 flex flex-wrap gap-2">
-                {trustBadges.map((badge) => (
-                  <span key={badge} className={`rounded-full border px-3 py-1 text-xs font-semibold ${accentBadgeClass}`}>
-                    {badge}
-                  </span>
-                ))}
-                {product.badges.map((badge) => (
-                  <span key={badge} className={`rounded-full border px-3 py-1 text-xs font-semibold ${accentBadgeClass}`}>
-                    {badge}
-                  </span>
-                ))}
-                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${categoryBadgeClass}`}>
-                  {product.category}
-                </span>
-              </div>
-
-              <motion.h1 layoutId={`product-title-${product.id}`} className="text-base-primary text-3xl font-bold leading-tight">{product.title}</motion.h1>
-              <p className="mt-4 text-[15px] leading-7 text-dimmed">{product.description}</p>
-
-              <div className="mt-5 flex items-center gap-3 text-sm text-faint">
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span>{product.rating} · {product.reviews} reviews</span>
-                <span className="text-zinc-300 dark:text-white/35">•</span>
-                <span className="font-medium text-subtle">+{salesCount} ventas</span>
-              </div>
-
-              <div className="mt-7 flex items-end justify-between gap-5">
-                <div>
-                  <span className="text-sm text-dimmed">Precio</span>
-                  <motion.p layoutId={`product-price-${product.id}`} className="text-base-primary text-5xl font-black tracking-tight">{formatEurPrice(purchaseContext?.price || product.price)}</motion.p>
-                  <p className="mt-2 text-sm font-medium text-zinc-500">{formatEthPrice(purchaseContext?.price || product.price)}</p>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  {!esPropietario ? (
-                    <button onClick={handleAbrirModal} className="group relative isolate inline-flex items-center gap-2 overflow-hidden rounded-2xl border border-violet-300 dark:border-white/25 bg-linear-to-r from-violet-500 via-violet-600 to-primary dark:from-white/18 dark:via-violet-400/18 dark:to-primary/28 px-6 py-3 font-bold text-white backdrop-blur-md shadow-[0_8px_20px_-8px_rgba(168,85,247,0.5)] dark:shadow-[0_12px_28px_-14px_rgba(168,85,247,0.45)] transition-all duration-300 hover:scale-[1.04] hover:shadow-[0_12px_28px_-10px_rgba(168,85,247,0.55)] dark:hover:border-violet-300/45 dark:hover:shadow-[0_20px_40px_-18px_rgba(168,85,247,0.62),0_0_16px_rgba(239,68,68,0.35)] active:scale-95">
-                      <span className="pointer-events-none absolute -inset-1 rounded-2xl opacity-45 blur-md transition-opacity duration-500 group-hover:opacity-80" style={auraStyle}></span>
-                      <span className="pointer-events-none absolute inset-y-0 -left-[28%] w-[38%] -skew-x-12 bg-linear-to-r from-transparent via-white/60 to-transparent transition-all duration-700 group-hover:left-[118%]"></span>
-                      <span className="pointer-events-none absolute inset-0 bg-linear-to-b from-white/12 to-transparent opacity-90"></span>
-                      <span className="relative inline-flex items-center gap-2">
-                        <ShoppingCart className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" /> Comprar
-                      </span>
-                    </button>
-                  ) : (
-                    <div className="bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 px-4 py-2 rounded-xl text-xs font-semibold text-dimmed">
-                      Este es tu producto
-                    </div>
-                  )}
-                  <p className="text-[11px] font-medium tracking-wide text-faint">Pago seguro • Acceso inmediato • Soporte incluido</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Sección compartir */}
-            <div className={sectionClass}>
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-semibold text-base-primary">Compartir producto</p>
-                  <p className="text-xs text-base-secondary mt-0.5">QR, enlace publico y verificacion on-chain sin ruido.</p>
-                </div>
-                <div className="flex flex-wrap justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setQrOpen(true)}
-                    className="flex items-center gap-2 btn-secondary text-sm hover:scale-[1.03]"
-                  >
-                    <QrCode className="w-4 h-4" />
-                    QR
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyValue(productUrl, 'link')}
-                    className="flex items-center gap-2 btn-secondary text-sm hover:scale-[1.03]"
-                  >
-                    {copiedShare === 'link' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    Copiar enlace
-                  </button>
-                  <a
-                    href={ownership.explorerUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 btn-secondary text-sm hover:scale-[1.03]"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    Ver tx
-                  </a>
-                </div>
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Asset verificable</p>
-                  <p className="mt-2 text-sm text-base-primary">Wallet {ownership.walletShort}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Tx registrada</p>
-                  <p className="mt-2 font-mono text-sm text-base-primary">{ownership.txHashShort}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className={sectionClass}>
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-subtle">Vendedor</h2>
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className={`grid h-14 w-14 place-content-center rounded-2xl border bg-zinc-100 dark:bg-white/10 text-base font-black text-zinc-800 dark:text-white shadow-[0_12px_26px_-16px_rgba(168,85,247,0.75)] ${
-                    isService ? 'border-blue-400/35' : 'border-violet-400/35'
-                  }`}>
-                    {product.vendor.avatar}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-base-primary">{product.vendor.name}</p>
-                    <p className="text-sm text-dimmed">Vendedor verificado</p>
-                  </div>
-                </div>
-                {!esPropietario && (
-                  <button className={`btn-secondary hover:scale-[1.03] ${
-                    isService ? 'hover:border-blue-400/35 hover:bg-blue-500/10' : 'hover:border-violet-400/35 hover:bg-violet-500/10'
-                  }`}>
-                    <MessageCircle className="h-4 w-4" /> Contactar
-                  </button>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        </div>
-
-        <motion.div variants={itemVariants} className="grid gap-6 md:grid-cols-3">
-          <div className={sectionClass}>
-            <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><span className="text-lg">⚙️</span><ShieldCheck className="h-4 w-4 text-violet-500 dark:text-violet-300" /> Características</h3>
-            <ul className="space-y-2.5 text-sm text-dimmed">
-              {product.characteristics.map((item) => (
-                <li key={item}>• {item}</li>
-              ))}
-            </ul>
-          </div>
-          <div className={sectionClass}>
-            <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><span className="text-lg">📦</span><PackageCheck className="h-4 w-4 text-red-500 dark:text-red-300" /> Incluye</h3>
-            <ul className="space-y-2.5 text-sm text-dimmed">
-              {product.includes.map((item) => (
-                <li key={item}>• {item}</li>
-              ))}
-            </ul>
-          </div>
-          <div className={sectionClass}>
-            <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><span className="text-lg">📄</span><ClipboardList className="h-4 w-4 text-zinc-500 dark:text-white/80" /> Requisitos</h3>
-            <ul className="space-y-2.5 text-sm text-dimmed">
-              {product.requirements.map((item) => (
-                <li key={item}>• {item}</li>
-              ))}
-            </ul>
-          </div>
-        </motion.div>
-
-        <motion.div variants={itemVariants} className="grid gap-6 lg:grid-cols-2">
-          <div className={sectionClass}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-base font-semibold text-base-primary">Ownership y blockchain</h3>
-                <p className="mt-1 text-sm text-dimmed">Informacion tecnica util, sin teatralidad crypto.</p>
-              </div>
-              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${accentBadgeClass}`}>Licencia on-chain</span>
-            </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Wallet propietaria</p>
-                <p className="mt-2 font-mono text-sm text-base-primary">{ownership.walletShort}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Tx hash</p>
-                <p className="mt-2 font-mono text-sm text-base-primary">{ownership.txHashShort}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Fecha de compra / mint</p>
-                <p className="mt-2 text-sm text-base-primary">{ownership.mintedAt}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Red usada</p>
-                <p className="mt-2 text-sm text-base-primary">{ownership.network}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className={sectionClass}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-base font-semibold text-base-primary">Trazabilidad</h3>
-                <p className="mt-1 text-sm text-dimmed">Contexto comercial y de ownership reutilizable.</p>
-              </div>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-base-secondary">Asset inspeccionable</span>
-            </div>
-            <div className="mt-5 grid gap-3">
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
-                <span className="text-dimmed">Propietarios anteriores</span>
-                <span className="font-semibold text-base-primary">{ownership.previousOwners}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
-                <span className="text-dimmed">Ultima transferencia</span>
-                <span className="font-semibold text-base-primary">Hace {ownership.transferDays} dias</span>
-              </div>
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
-                <span className="text-dimmed">Estado de licencia</span>
-                <span className="font-semibold text-base-primary">{ownership.licenseLabel}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
-                <span className="text-dimmed">Verificacion</span>
-                <span className="font-semibold text-base-primary">{ownership.ownershipLabel}</span>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        {relatedProducts.length > 0 && (
           <motion.div variants={itemVariants}>
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-base-primary">Productos relacionados</h2>
-              <span className="text-sm text-dimmed">Misma categoría: {product.category}</span>
-            </div>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {relatedProducts.map((related) => (
-                <ProductCard key={related.id} {...related} />
-              ))}
-            </div>
+            <Link
+              to={backTarget}
+              className="btn-secondary text-sm hover:scale-[1.02]"
+            >
+              <ArrowLeft className="h-4 w-4" /> {backLabel}
+            </Link>
           </motion.div>
-        )}
-        </div>
-      </motion.div>
-      {modalAbierto && (        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: 24 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.28, ease: 'easeOut' }}
-            className="relative w-full max-w-md rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0e0e12] p-7 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.18)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7)]"
-          >
-            <button onClick={handleCerrarModal} className="absolute right-5 top-5 rounded-lg p-1 text-zinc-400 dark:text-white/40 transition hover:text-zinc-700 dark:hover:text-white/80 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/50">
-              <X className="h-5 w-5" />
-            </button>
 
-            <div className="mb-5 flex items-center gap-2">
-              <span className="rounded-full border border-yellow-300 dark:border-yellow-400/40 bg-yellow-100 dark:bg-yellow-400/10 px-3 py-1 text-xs font-semibold text-yellow-700 dark:text-yellow-300">
-                🧪 Modo Desarrollador — Pago de Prueba
-              </span>
-            </div>
+          <div className="grid gap-8 lg:grid-cols-2">
+            <motion.div layoutId={`product-image-${product.id}`} variants={itemVariants} className={`relative overflow-hidden rounded-3xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-black/30 ${imageShadowClass}`}>
+              <img
+                src={product.image}
+                alt={product.title}
+                className="h-full min-h-[360px] w-full object-cover transition-transform duration-500 hover:scale-105"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/55 via-transparent to-transparent" />
+            </motion.div>
 
-            <h2 className="mb-1 text-base-primary text-xl font-bold">{product.title}</h2>
-            <p className="mb-6 text-base-primary text-3xl font-black">{product.price}€</p>
-
-            {/* Selector de pasarela de pago */}
-            <div className="mb-4">
-              <p className="mb-2 text-sm font-semibold text-dimmed">Forma de pago</p>
-              <div className="flex gap-3 mb-3">
-                <button
-                  onClick={() => setTipoPago('stripe')}
-                  className={`flex-1 rounded-xl border py-3 px-3 flex flex-col items-center gap-2 transition hover:scale-[1.02] active:scale-95 ${
-                    tipoPago === 'stripe'
-                      ? 'border-violet-400 bg-violet-50 dark:border-violet-400/70 dark:bg-violet-500/10'
-                      : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-violet-300 dark:hover:border-violet-400/40'
-                  }`}
-                >
-                  <div className="flex items-center gap-1">
-                    <svg width="30" height="19" viewBox="0 0 30 19" fill="none"><rect width="30" height="19" rx="3" fill="#1A1F71"/><text x="3" y="14" fontFamily="Arial" fontWeight="bold" fontSize="10" fill="white" fontStyle="italic">VISA</text></svg>
-                    <svg width="30" height="19" viewBox="0 0 30 19" fill="none"><rect width="30" height="19" rx="3" fill="#1B1B1B"/><circle cx="11" cy="9.5" r="5.5" fill="#EB001B"/><circle cx="19" cy="9.5" r="5.5" fill="#F79E1B"/><ellipse cx="15" cy="9.5" rx="2" ry="5.5" fill="#FF5F00"/></svg>
-                    <svg width="30" height="19" viewBox="0 0 30 19" fill="none"><rect width="30" height="19" rx="3" fill="#007BC1"/><text x="3" y="13" fontFamily="Arial" fontWeight="bold" fontSize="8" fill="white">AMEX</text></svg>
-                  </div>
-                  <span className="text-xs font-semibold text-dimmed">Tarjeta</span>
-                </button>
-                <button
-                  onClick={() => setTipoPago('paypal')}
-                  className={`flex-1 rounded-xl border py-3 px-3 flex flex-col items-center gap-2 transition hover:scale-[1.02] active:scale-95 ${
-                    tipoPago === 'paypal'
-                      ? 'border-blue-400 bg-blue-50 dark:border-blue-400/70 dark:bg-blue-500/10'
-                      : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-blue-300 dark:hover:border-blue-400/40'
-                  }`}
-                >
-                  <svg width="62" height="19" viewBox="0 0 62 19" fill="none">
-                    <text x="0" y="14" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="#003087">Pay</text>
-                    <text x="22" y="14" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="#009CDE">Pal</text>
-                  </svg>
-                  <span className="text-xs font-semibold text-dimmed">PayPal</span>
-                </button>
-              </div>
-
-              {/* Subtabs de tarjeta solo cuando tipoPago es stripe */}
-              {tipoPago === 'stripe' && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setMetodoPago('visa')}
-                    className={`flex-1 rounded-xl border py-3 flex items-center justify-center transition hover:scale-[1.02] active:scale-95 ${
-                      metodoPago === 'visa'
-                        ? 'border-violet-400 bg-violet-50 dark:border-violet-400/70 dark:bg-violet-500/10'
-                        : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-violet-300 dark:hover:border-violet-400/40'
-                    }`}
-                  >
-                    <svg width="46" height="28" viewBox="0 0 46 28" fill="none"><rect width="46" height="28" rx="4" fill="#1A1F71"/><text x="5" y="20" fontFamily="Arial" fontWeight="bold" fontSize="14" fill="white" fontStyle="italic">VISA</text></svg>
-                  </button>
-                  <button
-                    onClick={() => setMetodoPago('mastercard')}
-                    className={`flex-1 rounded-xl border py-3 flex items-center justify-center transition hover:scale-[1.02] active:scale-95 ${
-                      metodoPago === 'mastercard'
-                        ? 'border-violet-400 bg-violet-50 dark:border-violet-400/70 dark:bg-violet-500/10'
-                        : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-violet-300 dark:hover:border-violet-400/40'
-                    }`}
-                  >
-                    <svg width="46" height="28" viewBox="0 0 46 28" fill="none"><rect width="46" height="28" rx="4" fill="#1B1B1B"/><circle cx="17" cy="14" r="8" fill="#EB001B"/><circle cx="29" cy="14" r="8" fill="#F79E1B"/><ellipse cx="23" cy="14" rx="3" ry="8" fill="#FF5F00"/></svg>
-                  </button>
-                  <button
-                    onClick={() => setMetodoPago('amex')}
-                    className={`flex-1 rounded-xl border py-3 flex items-center justify-center transition hover:scale-[1.02] active:scale-95 ${
-                      metodoPago === 'amex'
-                        ? 'border-violet-400 bg-violet-50 dark:border-violet-400/70 dark:bg-violet-500/10'
-                        : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-violet-300 dark:hover:border-violet-400/40'
-                    }`}
-                  >
-                    <svg width="46" height="28" viewBox="0 0 46 28" fill="none"><rect width="46" height="28" rx="4" fill="#007BC1"/><text x="5" y="19" fontFamily="Arial" fontWeight="bold" fontSize="11" fill="white">AMEX</text></svg>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Detalle de tarjeta Stripe */}
-            {tipoPago === 'stripe' && (
-              <div className="mb-6 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 p-4">
-                <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-dimmed">
-                  <CreditCard className="h-4 w-4" /> Tarjeta de prueba Stripe — {tarjetasPrueba[metodoPago].label}
-                </div>
-                <p className="font-mono text-base-primary text-lg tracking-widest">{tarjetasPrueba[metodoPago].numero}</p>
-                <div className="mt-1 flex gap-4 text-sm text-faint">
-                  <span>EXP {tarjetasPrueba[metodoPago].exp}</span>
-                  <span>CVC {tarjetasPrueba[metodoPago].cvc}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Info PayPal sandbox */}
-            {tipoPago === 'paypal' && (
-              <div className="mb-6 rounded-2xl border border-blue-400/30 bg-blue-500/5 p-4">
-                <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-300">
-                  <svg width="58" height="16" viewBox="0 0 58 16" fill="none"><text x="0" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#003087">Pay</text><text x="20" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#009CDE">Pal</text></svg> Sandbox
-                </div>
-                <p className="text-sm text-dimmed leading-relaxed">
-                  Se abrirá una ventana de PayPal para completar el pago de forma segura.
-                  Usa una cuenta de <span className="font-semibold text-blue-500">PayPal sandbox</span> para probar.
-                </p>
-                <p className="mt-2 text-xs text-faint">
-                  Crea cuentas de prueba en <span className="font-mono">developer.paypal.com → Sandbox → Accounts</span>
-                </p>
-              </div>
-            )}
-
-            {estadoPago === 'idle' && (
-              <button
-                onClick={tipoPago === 'paypal' ? handleConfirmarPagoPayPal : handleConfirmarPago}
-                className={`w-full rounded-2xl border py-3 font-bold transition hover:scale-[1.02] active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 ${
-                  tipoPago === 'paypal'
-                    ? 'border-blue-400/35 bg-blue-100 dark:bg-blue-600/20 text-blue-700 dark:text-white hover:bg-blue-200 dark:hover:bg-blue-600/35 focus-visible:ring-blue-400/50'
-                    : 'border-violet-400/35 bg-violet-100 dark:bg-violet-600/20 text-violet-700 dark:text-white hover:bg-violet-200 dark:hover:bg-violet-600/35 focus-visible:ring-primary/50'
-                }`}
-              >
-                {tipoPago === 'paypal' ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg width="58" height="16" viewBox="0 0 58 16" fill="none"><text x="0" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#003087">Pay</text><text x="20" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#009CDE">Pal</text></svg>
-                    Pagar
+            <motion.div variants={itemVariants} className="space-y-6">
+              <div className={`${sectionClass} ${panelHoverClass}`}>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {trustBadges.map((badge) => (
+                    <span key={badge} className={`rounded-full border px-3 py-1 text-xs font-semibold ${accentBadgeClass}`}>
+                      {badge}
+                    </span>
+                  ))}
+                  {product.badges.map((badge) => (
+                    <span key={badge} className={`rounded-full border px-3 py-1 text-xs font-semibold ${accentBadgeClass}`}>
+                      {badge}
+                    </span>
+                  ))}
+                  <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${categoryBadgeClass}`}>
+                    {product.category}
                   </span>
-                ) : 'Confirmar Pago'}
-              </button>
-            )}
+                </div>
 
-            {estadoPago === 'cargando' && (
-              <div className="flex items-center justify-center gap-3 py-3 text-subtle">
-                <Loader className="h-5 w-5 animate-spin" /> Procesando pago...
+                <motion.h1 layoutId={`product-title-${product.id}`} className="text-base-primary text-3xl font-bold leading-tight">{product.title}</motion.h1>
+                <p className="mt-4 text-[15px] leading-7 text-dimmed">{product.description}</p>
+
+                <div className="mt-5 flex items-center gap-3 text-sm text-faint">
+                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  <span>{product.rating} · {product.reviews} reviews</span>
+                  <span className="text-zinc-300 dark:text-white/35">•</span>
+                  <span className="font-medium text-subtle">+{salesCount} ventas</span>
+                </div>
+
+                <div className="mt-7 flex items-end justify-between gap-5">
+                  <div>
+                    <span className="text-sm text-dimmed">Precio</span>
+                    <motion.p layoutId={`product-price-${product.id}`} className="text-base-primary text-5xl font-black tracking-tight">{formatEurPrice(purchaseContext?.price || product.price)}</motion.p>
+                    <p className="mt-2 text-sm font-medium text-zinc-500">{formatEthPrice(purchaseContext?.price || product.price)}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    {!esPropietario ? (
+                      <button onClick={handleAbrirModal} className="group relative isolate inline-flex items-center gap-2 overflow-hidden rounded-2xl border border-violet-300 dark:border-white/25 bg-linear-to-r from-violet-500 via-violet-600 to-primary dark:from-white/18 dark:via-violet-400/18 dark:to-primary/28 px-6 py-3 font-bold text-white backdrop-blur-md shadow-[0_8px_20px_-8px_rgba(168,85,247,0.5)] dark:shadow-[0_12px_28px_-14px_rgba(168,85,247,0.45)] transition-all duration-300 hover:scale-[1.04] hover:shadow-[0_12px_28px_-10px_rgba(168,85,247,0.55)] dark:hover:border-violet-300/45 dark:hover:shadow-[0_20px_40px_-18px_rgba(168,85,247,0.62),0_0_16px_rgba(239,68,68,0.35)] active:scale-95">
+                        <span className="pointer-events-none absolute -inset-1 rounded-2xl opacity-45 blur-md transition-opacity duration-500 group-hover:opacity-80" style={auraStyle}></span>
+                        <span className="pointer-events-none absolute inset-y-0 -left-[28%] w-[38%] -skew-x-12 bg-linear-to-r from-transparent via-white/60 to-transparent transition-all duration-700 group-hover:left-[118%]"></span>
+                        <span className="pointer-events-none absolute inset-0 bg-linear-to-b from-white/12 to-transparent opacity-90"></span>
+                        <span className="relative inline-flex items-center gap-2">
+                          <ShoppingCart className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" /> Comprar
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 px-4 py-2 rounded-xl text-xs font-semibold text-dimmed">
+                        Este es tu producto
+                      </div>
+                    )}
+                    <p className="text-[11px] font-medium tracking-wide text-faint">Pago seguro • Acceso inmediato • Soporte incluido</p>
+                  </div>
+                </div>
               </div>
-            )}
 
-            {estadoPago === 'ok' && (
-              <div className="flex flex-col items-center gap-3 py-2 text-center">
-                <CheckCircle className="h-10 w-10 text-green-400" />
-                <p className="font-semibold text-green-700 dark:text-green-300">¡Pago realizado correctamente!</p>
-                <p className="text-sm text-dimmed">{mensajePago}</p>
-                
-                {hashBlockchain && (
-                  <div className="mt-4 w-full rounded-2xl border border-blue-400/30 bg-blue-500/5 p-4 text-left">
-                    <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-500">
-                      <ShieldCheck className="h-3.5 w-3.5" /> Certificado Blockchain
-                    </p>
-                    <p className="font-mono text-[10px] break-all text-blue-400/80">
-                      {hashBlockchain}
-                    </p>
-                    <a 
-                      href={`https://sepolia.etherscan.io/tx/${hashBlockchain}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 inline-block text-[11px] font-bold text-blue-500 hover:underline"
+              {/* Sección compartir */}
+              <div className={sectionClass}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-base-primary">Compartir producto</p>
+                    <p className="text-xs text-base-secondary mt-0.5">QR, enlace publico y verificacion on-chain sin ruido.</p>
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setQrOpen(true)}
+                      className="flex items-center gap-2 btn-secondary text-sm hover:scale-[1.03]"
                     >
-                      Ver en Etherscan →
+                      <QrCode className="w-4 h-4" />
+                      QR
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyValue(productUrl, 'link')}
+                      className="flex items-center gap-2 btn-secondary text-sm hover:scale-[1.03]"
+                    >
+                      {copiedShare === 'link' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      Copiar enlace
+                    </button>
+                    <a
+                      href={ownership.explorerUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 btn-secondary text-sm hover:scale-[1.03]"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Ver tx
                     </a>
                   </div>
-                )}
-
-                <button onClick={handleCerrarModal} className="btn-secondary mt-4 w-full px-5 py-2 text-sm">
-                  Cerrar
-                </button>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Asset verificable</p>
+                    <p className="mt-2 text-sm text-base-primary">Wallet {ownership.walletShort}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Tx registrada</p>
+                    <p className="mt-2 font-mono text-sm text-base-primary">{ownership.txHashShort}</p>
+                  </div>
+                </div>
               </div>
-            )}
 
-            {estadoPago === 'error' && (
-              <div className="flex flex-col items-center gap-3 py-2 text-center">
-                <AlertCircle className="h-10 w-10 text-red-400" />
-                <p className="font-semibold text-red-700 dark:text-red-300">Error al procesar el pago</p>
-                <p className="text-sm text-dimmed">{mensajePago}</p>
-                <button onClick={handleCerrarModal} className="btn-secondary mt-2 px-5 py-2 text-sm">
-                  Cerrar
-                </button>
+              <div className={sectionClass}>
+                <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-subtle">Vendedor</h2>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`grid h-14 w-14 place-content-center rounded-2xl border bg-zinc-100 dark:bg-white/10 text-base font-black text-zinc-800 dark:text-white shadow-[0_12px_26px_-16px_rgba(168,85,247,0.75)] ${isService ? 'border-blue-400/35' : 'border-violet-400/35'
+                      }`}>
+                      {product.vendor.avatar}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-base-primary">{product.vendor.name}</p>
+                      <p className="text-sm text-dimmed">Vendedor verificado</p>
+                    </div>
+                  </div>
+                  {!esPropietario && (
+                    <button className={`btn-secondary hover:scale-[1.03] ${isService ? 'hover:border-blue-400/35 hover:bg-blue-500/10' : 'hover:border-violet-400/35 hover:bg-violet-500/10'
+                      }`}>
+                      <MessageCircle className="h-4 w-4" /> Contactar
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
+            </motion.div>
+          </div>
+
+          <motion.div variants={itemVariants} className="grid gap-6 md:grid-cols-3">
+            <div className={sectionClass}>
+              <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><span className="text-lg">⚙️</span><ShieldCheck className="h-4 w-4 text-violet-500 dark:text-violet-300" /> Características</h3>
+              <ul className="space-y-2.5 text-sm text-dimmed">
+                {product.characteristics.map((item) => (
+                  <li key={item}>• {item}</li>
+                ))}
+              </ul>
+            </div>
+            <div className={sectionClass}>
+              <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><span className="text-lg">📦</span><PackageCheck className="h-4 w-4 text-red-500 dark:text-red-300" /> Incluye</h3>
+              <ul className="space-y-2.5 text-sm text-dimmed">
+                {product.includes.map((item) => (
+                  <li key={item}>• {item}</li>
+                ))}
+              </ul>
+            </div>
+            <div className={sectionClass}>
+              <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><span className="text-lg">📄</span><ClipboardList className="h-4 w-4 text-zinc-500 dark:text-white/80" /> Requisitos</h3>
+              <ul className="space-y-2.5 text-sm text-dimmed">
+                {product.requirements.map((item) => (
+                  <li key={item}>• {item}</li>
+                ))}
+              </ul>
+            </div>
           </motion.div>
+
+          <motion.div variants={itemVariants} className="grid gap-6 lg:grid-cols-2">
+            <div className={sectionClass}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-semibold text-base-primary">Ownership y blockchain</h3>
+                  <p className="mt-1 text-sm text-dimmed">Informacion tecnica util, sin teatralidad crypto.</p>
+                </div>
+                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${accentBadgeClass}`}>Licencia on-chain</span>
+              </div>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Wallet propietaria</p>
+                  <p className="mt-2 font-mono text-sm text-base-primary">{ownership.walletShort}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Tx hash</p>
+                  <p className="mt-2 font-mono text-sm text-base-primary">{ownership.txHashShort}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Fecha de compra / mint</p>
+                  <p className="mt-2 text-sm text-base-primary">{ownership.mintedAt}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Red usada</p>
+                  <p className="mt-2 text-sm text-base-primary">{ownership.network}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className={sectionClass}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-semibold text-base-primary">Trazabilidad</h3>
+                  <p className="mt-1 text-sm text-dimmed">Contexto comercial y de ownership reutilizable.</p>
+                </div>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-base-secondary">Asset inspeccionable</span>
+              </div>
+              <div className="mt-5 grid gap-3">
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+                  <span className="text-dimmed">Propietarios anteriores</span>
+                  <span className="font-semibold text-base-primary">{ownership.previousOwners}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+                  <span className="text-dimmed">Ultima transferencia</span>
+                  <span className="font-semibold text-base-primary">Hace {ownership.transferDays} dias</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+                  <span className="text-dimmed">Estado de licencia</span>
+                  <span className="font-semibold text-base-primary">{ownership.licenseLabel}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+                  <span className="text-dimmed">Verificacion</span>
+                  <span className="font-semibold text-base-primary">{ownership.ownershipLabel}</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {relatedProducts.length > 0 && (
+            <motion.div variants={itemVariants}>
+              <div className="mb-6 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-base-primary">Productos relacionados</h2>
+                <span className="text-sm text-dimmed">Misma categoría: {product.category}</span>
+              </div>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                {relatedProducts.map((related) => (
+                  <ProductCard key={related.id} {...related} />
+                ))}
+              </div>
+            </motion.div>
+          )}
         </div>
+      </motion.div>
+      {modalAbierto && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92, y: 24 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.28, ease: 'easeOut' }}
+          className="relative w-full max-w-md rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0e0e12] p-7 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.18)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7)]"
+        >
+          <button onClick={handleCerrarModal} className="absolute right-5 top-5 rounded-lg p-1 text-zinc-400 dark:text-white/40 transition hover:text-zinc-700 dark:hover:text-white/80 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/50">
+            <X className="h-5 w-5" />
+          </button>
+
+          <div className="mb-5 flex items-center gap-2">
+            <span className="rounded-full border border-yellow-300 dark:border-yellow-400/40 bg-yellow-100 dark:bg-yellow-400/10 px-3 py-1 text-xs font-semibold text-yellow-700 dark:text-yellow-300">
+              🧪 Modo Desarrollador — Pago de Prueba
+            </span>
+          </div>
+
+          <h2 className="mb-1 text-base-primary text-xl font-bold">{product.title}</h2>
+          <p className="mb-6 text-base-primary text-3xl font-black">{product.price}€</p>
+
+          {/* Selector de pasarela de pago */}
+          {estadoPago === 'idle' && (
+            <>
+              <div className="mb-4">
+                <p className="mb-2 text-sm font-semibold text-dimmed">Forma de pago</p>
+                <div className="flex gap-3 mb-3">
+                  <button
+                    onClick={() => setTipoPago('stripe')}
+                    className={`flex-1 rounded-xl border py-3 px-3 flex flex-col items-center gap-2 transition hover:scale-[1.02] active:scale-95 ${tipoPago === 'stripe'
+                        ? 'border-violet-400 bg-violet-50 dark:border-violet-400/70 dark:bg-violet-500/10'
+                        : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-violet-300 dark:hover:border-violet-400/40'
+                      }`}
+                  >
+                    <div className="flex items-center gap-1">
+                      <svg width="30" height="19" viewBox="0 0 30 19" fill="none"><rect width="30" height="19" rx="3" fill="#1A1F71" /><text x="3" y="14" fontFamily="Arial" fontWeight="bold" fontSize="10" fill="white" fontStyle="italic">VISA</text></svg>
+                      <svg width="30" height="19" viewBox="0 0 30 19" fill="none"><rect width="30" height="19" rx="3" fill="#1B1B1B" /><circle cx="11" cy="9.5" r="5.5" fill="#EB001B" /><circle cx="19" cy="9.5" r="5.5" fill="#F79E1B" /><ellipse cx="15" cy="9.5" rx="2" ry="5.5" fill="#FF5F00" /></svg>
+                      <svg width="30" height="19" viewBox="0 0 30 19" fill="none"><rect width="30" height="19" rx="3" fill="#007BC1" /><text x="3" y="13" fontFamily="Arial" fontWeight="bold" fontSize="8" fill="white">AMEX</text></svg>
+                    </div>
+                    <span className="text-xs font-semibold text-dimmed">Tarjeta</span>
+                  </button>
+                  <button
+                    onClick={() => setTipoPago('paypal')}
+                    className={`flex-1 rounded-xl border py-3 px-3 flex flex-col items-center gap-2 transition hover:scale-[1.02] active:scale-95 ${tipoPago === 'paypal'
+                        ? 'border-blue-400 bg-blue-50 dark:border-blue-400/70 dark:bg-blue-500/10'
+                        : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-blue-300 dark:hover:border-blue-400/40'
+                      }`}
+                  >
+                    <svg width="62" height="19" viewBox="0 0 62 19" fill="none">
+                      <text x="0" y="14" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="#003087">Pay</text>
+                      <text x="22" y="14" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="#009CDE">Pal</text>
+                    </svg>
+                    <span className="text-xs font-semibold text-dimmed">PayPal</span>
+                  </button>
+                </div>
+
+                {/* Subtabs de tarjeta solo cuando tipoPago es stripe */}
+                {tipoPago === 'stripe' && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setMetodoPago('visa')}
+                      className={`flex-1 rounded-xl border py-3 flex items-center justify-center transition hover:scale-[1.02] active:scale-95 ${metodoPago === 'visa'
+                          ? 'border-violet-400 bg-violet-50 dark:border-violet-400/70 dark:bg-violet-500/10'
+                          : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-violet-300 dark:hover:border-violet-400/40'
+                        }`}
+                    >
+                      <svg width="46" height="28" viewBox="0 0 46 28" fill="none"><rect width="46" height="28" rx="4" fill="#1A1F71" /><text x="5" y="20" fontFamily="Arial" fontWeight="bold" fontSize="14" fill="white" fontStyle="italic">VISA</text></svg>
+                    </button>
+                    <button
+                      onClick={() => setMetodoPago('mastercard')}
+                      className={`flex-1 rounded-xl border py-3 flex items-center justify-center transition hover:scale-[1.02] active:scale-95 ${metodoPago === 'mastercard'
+                          ? 'border-violet-400 bg-violet-50 dark:border-violet-400/70 dark:bg-violet-500/10'
+                          : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-violet-300 dark:hover:border-violet-400/40'
+                        }`}
+                    >
+                      <svg width="46" height="28" viewBox="0 0 46 28" fill="none"><rect width="46" height="28" rx="4" fill="#1B1B1B" /><circle cx="17" cy="14" r="8" fill="#EB001B" /><circle cx="29" cy="14" r="8" fill="#F79E1B" /><ellipse cx="23" cy="14" rx="3" ry="8" fill="#FF5F00" /></svg>
+                    </button>
+                    <button
+                      onClick={() => setMetodoPago('amex')}
+                      className={`flex-1 rounded-xl border py-3 flex items-center justify-center transition hover:scale-[1.02] active:scale-95 ${metodoPago === 'amex'
+                          ? 'border-violet-400 bg-violet-50 dark:border-violet-400/70 dark:bg-violet-500/10'
+                          : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-violet-300 dark:hover:border-violet-400/40'
+                        }`}
+                    >
+                      <svg width="46" height="28" viewBox="0 0 46 28" fill="none"><rect width="46" height="28" rx="4" fill="#007BC1" /><text x="5" y="19" fontFamily="Arial" fontWeight="bold" fontSize="11" fill="white">AMEX</text></svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Detalle de tarjeta Stripe */}
+              {tipoPago === 'stripe' && (
+                <div className="mb-6 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 p-4">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-dimmed">
+                    <CreditCard className="h-4 w-4" /> Tarjeta de prueba Stripe — {tarjetasPrueba[metodoPago].label}
+                  </div>
+                  <p className="font-mono text-base-primary text-lg tracking-widest">{tarjetasPrueba[metodoPago].numero}</p>
+                  <div className="mt-1 flex gap-4 text-sm text-faint">
+                    <span>EXP {tarjetasPrueba[metodoPago].exp}</span>
+                    <span>CVC {tarjetasPrueba[metodoPago].cvc}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Info PayPal sandbox */}
+              {tipoPago === 'paypal' && (
+                <div className="mb-6 rounded-2xl border border-blue-400/30 bg-blue-500/5 p-4">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-300">
+                    <svg width="58" height="16" viewBox="0 0 58 16" fill="none"><text x="0" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#003087">Pay</text><text x="20" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#009CDE">Pal</text></svg> Sandbox
+                  </div>
+                  <p className="text-sm text-dimmed leading-relaxed">
+                    Se abrirá una ventana de PayPal para completar el pago de forma segura.
+                    Usa una cuenta de <span className="font-semibold text-blue-500">PayPal sandbox</span> para probar.
+                  </p>
+                  <p className="mt-2 text-xs text-faint">
+                    Crea cuentas de prueba en <span className="font-mono">developer.paypal.com → Sandbox → Accounts</span>
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+
+          {estadoPago === 'idle' && (
+            <button
+              onClick={tipoPago === 'paypal' ? handleConfirmarPagoPayPal : handleConfirmarPago}
+              className={`w-full rounded-2xl border py-3 font-bold transition hover:scale-[1.02] active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 ${tipoPago === 'paypal'
+                  ? 'border-blue-400/35 bg-blue-100 dark:bg-blue-600/20 text-blue-700 dark:text-white hover:bg-blue-200 dark:hover:bg-blue-600/35 focus-visible:ring-blue-400/50'
+                  : 'border-violet-400/35 bg-violet-100 dark:bg-violet-600/20 text-violet-700 dark:text-white hover:bg-violet-200 dark:hover:bg-violet-600/35 focus-visible:ring-primary/50'
+                }`}
+            >
+              {tipoPago === 'paypal' ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg width="58" height="16" viewBox="0 0 58 16" fill="none"><text x="0" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#003087">Pay</text><text x="20" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#009CDE">Pal</text></svg>
+                  Pagar
+                </span>
+              ) : 'Confirmar Pago'}
+            </button>
+          )}
+
+          {estadoPago === 'cargando' && (
+            <div className="flex items-center justify-center gap-3 py-3 text-subtle">
+              <Loader className="h-5 w-5 animate-spin" /> Procesando pago...
+            </div>
+          )}
+
+          {estadoPago === 'ok' && (
+            <div className="flex flex-col items-center gap-3 py-2 text-center">
+              <CheckCircle className="h-10 w-10 text-green-400" />
+              <p className="font-semibold text-green-700 dark:text-green-300">¡Pago realizado correctamente!</p>
+              <p className="text-sm text-dimmed">{mensajePago}</p>
+
+              {hashBlockchain && (
+                <div className="mt-4 w-full rounded-2xl border border-blue-400/30 bg-blue-500/5 p-4 text-left">
+                  <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-500">
+                    <ShieldCheck className="h-3.5 w-3.5" /> Certificado Blockchain
+                  </p>
+                  <p className="font-mono text-[10px] break-all text-blue-400/80">
+                    {hashBlockchain}
+                  </p>
+                  <a
+                    href={`https://sepolia.etherscan.io/tx/${hashBlockchain}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-block text-[11px] font-bold text-blue-500 hover:underline"
+                  >
+                    Ver en Etherscan →
+                  </a>
+                </div>
+              )}
+
+              {tokenIdBlockchain && (
+                <div className="mt-4 w-full rounded-2xl border border-violet-400/30 bg-violet-500/5 p-4 text-left">
+                  <p className="mb-2 flex items-center gap-2 text-sm font-bold text-violet-500">
+                    🦊 Importar a MetaMask
+                  </p>
+                  <p className="text-xs text-dimmed mb-3">Tu Licencia NFT ha sido creada y enviada a tu cartera. Para verla, usa estos datos en "Importar NFT":</p>
+                  <div className="bg-black/20 rounded-lg p-2 text-xs font-mono mb-2 flex flex-col gap-1">
+                    <span className="text-zinc-500">Dirección del contrato: </span>
+                    <span className="text-white break-all">0x4ACBc139Cba05b41fBB7e760fD696D2A0FC8A0cC</span>
+                  </div>
+                  <div className="bg-black/20 rounded-lg p-2 text-xs font-mono flex flex-col gap-1">
+                    <span className="text-zinc-500">ID del Token: </span>
+                    <span className="text-white font-bold text-sm">{tokenIdBlockchain}</span>
+                  </div>
+                  <p className="text-[10px] text-faint mt-3 text-center">O visita la pestaña "Mis Compras" para ver tu galería mágica de licencias.</p>
+                </div>
+              )}
+
+              <button onClick={handleCerrarModal} className="btn-secondary mt-4 w-full px-5 py-2 text-sm">
+                Cerrar
+              </button>
+            </div>
+          )}
+
+          {estadoPago === 'error' && (
+            <div className="flex flex-col items-center gap-3 py-2 text-center">
+              <AlertCircle className="h-10 w-10 text-red-400" />
+              <p className="font-semibold text-red-700 dark:text-red-300">Error al procesar el pago</p>
+              <p className="text-sm text-dimmed">{mensajePago}</p>
+              <button onClick={handleCerrarModal} className="btn-secondary mt-2 px-5 py-2 text-sm">
+                Cerrar
+              </button>
+            </div>
+          )}
+        </motion.div>
+      </div>
       )}
       <QrModal
         url={productUrl}
