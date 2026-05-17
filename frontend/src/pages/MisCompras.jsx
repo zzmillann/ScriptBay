@@ -3,6 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, ExternalLink, CreditCard, Package } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getValidSession } from '../services/authClient';
+import { useAccount, usePublicClient } from 'wagmi';
+import { ShieldCheck, Loader2 } from 'lucide-react';
+
+const CONTRACT_ADDRESS = '0x4ACBc139Cba05b41fBB7e760fD696D2A0FC8A0cC';
 
 const API = 'http://localhost:3000/api/productos';
 
@@ -25,6 +29,65 @@ const MisCompras = () => {
     const [compras, setCompras] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const { address } = useAccount();
+    const publicClient = usePublicClient();
+
+    const [nfts, setNfts] = useState([]);
+    const [loadingNfts, setLoadingNfts] = useState(false);
+
+    // Cargar NFTs On-Chain
+    useEffect(() => {
+        if (!address || !publicClient) return;
+        const fetchNFTs = async () => {
+            setLoadingNfts(true);
+            try {
+                console.log("[MisCompras] Address conectada a Wagmi:", address);
+                console.log("[MisCompras] Consultando contrato:", CONTRACT_ADDRESS);
+                
+                const total = await publicClient.readContract({
+                    address: CONTRACT_ADDRESS,
+                    abi: [{ inputs: [], name: 'contadorLicencias', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
+                    functionName: 'contadorLicencias'
+                });
+                console.log("[MisCompras] Total licencias en el contrato:", Number(total));
+
+                const fetchedNfts = [];
+                for (let i = 1n; i <= total; i++) {
+                    try {
+                        const owner = await publicClient.readContract({
+                            address: CONTRACT_ADDRESS,
+                            abi: [{ inputs: [{ type: 'uint256' }], name: 'ownerOf', outputs: [{ type: 'address' }], stateMutability: 'view', type: 'function' }],
+                            functionName: 'ownerOf',
+                            args: [i]
+                        });
+                        console.log(`[MisCompras] Token ID ${i} pertenece a: ${owner}`);
+
+                        if (owner.toLowerCase() === address.toLowerCase()) {
+                            const uri = await publicClient.readContract({
+                                address: CONTRACT_ADDRESS,
+                                abi: [{ inputs: [{ type: 'uint256' }], name: 'tokenURI', outputs: [{ type: 'string' }], stateMutability: 'view', type: 'function' }],
+                                functionName: 'tokenURI',
+                                args: [i]
+                            });
+
+                            const base64Data = uri.split(',')[1];
+                            const json = JSON.parse(atob(base64Data));
+                            fetchedNfts.push({ id: Number(i), ...json });
+                            console.log(`[MisCompras] Añadido token ${i} a la galería`);
+                        }
+                    } catch (e) {
+                        console.error("Error reading token", i, e);
+                    }
+                }
+                setNfts(fetchedNfts);
+            } catch (err) {
+                console.error("Error global NFTs:", err);
+            } finally {
+                setLoadingNfts(false);
+            }
+        };
+        fetchNFTs();
+    }, [address, publicClient]);
 
     useEffect(() => {
         const cargar = async () => {
@@ -177,6 +240,70 @@ const MisCompras = () => {
                     </AnimatePresence>
                 </div>
             )}
+
+            {/* SECCIÓN BLOCKCHAIN: MIS LICENCIAS */}
+            <div className="mt-16">
+                <div className="flex items-center gap-3 mb-6">
+                    <ShieldCheck className="w-6 h-6 text-violet-500" />
+                    <h2 className="text-2xl font-bold text-base-primary">Mis Licencias On-Chain</h2>
+                </div>
+                
+                {!address ? (
+                    <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6 text-center">
+                        <p className="text-violet-400">Conecta tu wallet MetaMask arriba a la derecha para ver tus licencias NFT verificadas en la blockchain de Sepolia.</p>
+                    </div>
+                ) : loadingNfts ? (
+                    <div className="flex items-center gap-3 text-subtle py-8">
+                        <Loader2 className="w-5 h-5 animate-spin" /> Escaneando la blockchain en busca de tus licencias...
+                    </div>
+                ) : nfts.length === 0 ? (
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
+                        <p className="text-dimmed">No se han encontrado licencias asociadas a la wallet {address.slice(0,6)}...{address.slice(-4)}</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                        {nfts.map(nft => (
+                            <motion.div 
+                                key={nft.id} 
+                                initial={{ opacity: 0, scale: 0.9 }} 
+                                animate={{ opacity: 1, scale: 1 }} 
+                                className="group surface-card overflow-hidden hover:border-violet-500/50 hover:shadow-[0_0_30px_-10px_rgba(139,92,246,0.3)] transition-all duration-300"
+                            >
+                                <div className="aspect-[4/5] bg-zinc-900 w-full overflow-hidden relative">
+                                    <img 
+                                        src={nft.image} 
+                                        alt={nft.name} 
+                                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" 
+                                    />
+                                    <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md border border-white/10 rounded-full px-3 py-1 text-[10px] font-bold text-white tracking-widest uppercase">
+                                        ERC-721
+                                    </div>
+                                </div>
+                                <div className="p-5 border-t border-white/5">
+                                    <h3 className="text-lg font-bold text-white mb-1">{nft.name}</h3>
+                                    <p className="text-xs text-zinc-400 mb-4 line-clamp-2">{nft.description}</p>
+                                    <div className="space-y-2">
+                                        {nft.attributes?.map((attr, idx) => (
+                                            <div key={idx} className="flex justify-between items-center text-xs bg-white/5 rounded-lg px-3 py-2 border border-white/5">
+                                                <span className="text-zinc-500">{attr.trait_type}</span>
+                                                <span className="font-semibold text-zinc-300 truncate max-w-[120px]" title={attr.value}>{attr.value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <a 
+                                        href={`https://sepolia.etherscan.io/nft/${CONTRACT_ADDRESS}/${nft.id}`}
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="mt-4 w-full flex items-center justify-center gap-2 btn-secondary py-2 text-xs"
+                                    >
+                                        <ExternalLink className="w-3 h-3" /> Ver tx en Etherscan
+                                    </a>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

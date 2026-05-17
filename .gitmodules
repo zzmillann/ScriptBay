@@ -1,0 +1,3 @@
+[submodule "scriptbay_blockchain/lib/openzeppelin-contracts"]
+	path = scriptbay_blockchain/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts

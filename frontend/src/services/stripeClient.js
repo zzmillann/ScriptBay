@@ -2,7 +2,7 @@ import { getSession, refreshSession } from './authClient';
 
 const API_BASE_URL = 'http://localhost:3000/api/productos';
 
-export async function postPagarProducto(titulo, precio, metodoPago, idProducto) {
+export async function postPagarProducto(titulo, precio, metodoPago, idProducto, wallet) {
     let session = getSession();
     let accessToken = session?.accessToken;
 
@@ -12,7 +12,7 @@ export async function postPagarProducto(titulo, precio, metodoPago, idProducto) 
             'Content-Type': 'application/json',
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
         },
-        body: JSON.stringify({ titulo, precio, metodoPago, idProducto })
+        body: JSON.stringify({ titulo, precio, metodoPago, idProducto, wallet })
     });
 
     const data = await response.json();
@@ -27,7 +27,7 @@ export async function postPagarProducto(titulo, precio, metodoPago, idProducto) 
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${sesionRenovada.accessToken}`
             },
-            body: JSON.stringify({ titulo, precio, metodoPago, idProducto })
+            body: JSON.stringify({ titulo, precio, metodoPago, idProducto, wallet })
         });
 
         return await response2.json();
