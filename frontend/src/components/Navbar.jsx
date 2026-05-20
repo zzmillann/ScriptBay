@@ -155,7 +155,7 @@ const Navbar = () => {
                     <div className="max-w-7xl mx-auto px-5 lg:px-8 h-16 flex items-center gap-5">
 
                         {/* IZQUIERDA: Logo */}
-                        <Link to="/" className="shrink-0 flex items-center">
+                        <Link to="/" data-tour="tour-productos" className="shrink-0 flex items-center">
                             <span className="text-xl lg:text-2xl font-bold tracking-tight leading-none">
                                 Script<span className="gradient-text">Bay</span>
                             </span>
@@ -210,6 +210,7 @@ const Navbar = () => {
                                     {/* Subastas */}
                                     <Link
                                         to="/subastas"
+                                        data-tour="tour-subastas"
                                         className="hidden md:inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-xl border border-zinc-200/60 dark:border-zinc-700/50 bg-transparent dark:bg-transparent text-zinc-500 dark:text-zinc-400 transition-all duration-200 hover:border-primary/30 hover:text-primary hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
                                     >
                                         <Gavel className="w-3.5 h-3.5" />
@@ -219,6 +220,7 @@ const Navbar = () => {
                                     {/* Publicar producto — menos dominante */}
                                     <Link
                                         to="/create-product"
+                                        data-tour="tour-publicar"
                                         className="hidden md:inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-xl border border-zinc-200/60 dark:border-zinc-700/50 bg-transparent dark:bg-transparent text-zinc-500 dark:text-zinc-400 transition-all duration-200 hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
                                     >
                                         <Plus className="w-3.5 h-3.5" />
@@ -228,6 +230,7 @@ const Navbar = () => {
                                     {/* Favoritos */}
                                     <Link
                                         to="/wishlist"
+                                        data-tour="tour-wishlist"
                                         className="icon-control relative flex items-center justify-center w-9 h-9"
                                         aria-label="Mis favoritos"
                                     >
@@ -243,6 +246,7 @@ const Navbar = () => {
                                     <div className="relative" ref={notifRef}>
                                         <button
                                             type="button"
+                                            data-tour="tour-notificaciones"
                                             onClick={() => {
                                                 setIsNotifOpen((prev) => {
                                                     if (!prev) cargarDropdown();
@@ -333,6 +337,7 @@ const Navbar = () => {
                                     {/* Mis Compras */}
                                     <Link
                                         to="/mis-compras"
+                                        data-tour="tour-compras"
                                         className="icon-control relative flex items-center justify-center w-9 h-9"
                                         aria-label="Mis compras"
                                     >
@@ -343,6 +348,7 @@ const Navbar = () => {
                                     <div className="relative" ref={avatarMenuRef}>
                                         <button
                                             type="button"
+                                            data-tour="tour-dashboard"
                                             onClick={() => setIsAvatarMenuOpen((prev) => !prev)}
                                             className="w-9 h-9 rounded-full border border-zinc-300/70 dark:border-zinc-700/70 overflow-hidden flex items-center justify-center bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-semibold text-sm transition-all duration-200 hover:border-zinc-400 dark:hover:border-zinc-500 hover:shadow-[0_0_0_2px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_0_0_2px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                                             aria-label="Abrir menú de usuario"

@@ -319,4 +319,56 @@ objetoRouter.post('/EliminarCuenta', async (req, res, next) => {
     }
 });
 
+objetoRouter.post('/CompletarOnboarding', async (req, res, next) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token) throw new Error('No autorizado');
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError) throw authError;
+
+        const { skip } = req.body;
+
+        const { data: perfil } = await supabase
+            .from('perfiles')
+            .select('onboarding_completado, creditos, logros')
+            .eq('id', user.id)
+            .single();
+
+        if (perfil?.onboarding_completado) {
+            return res.status(200).send({ codigo: 0, mensaje: 'Onboarding ya completado' });
+        }
+
+        const updatePayload = { onboarding_completado: true };
+
+        if (!skip) {
+            const creditosActuales = typeof perfil?.creditos === 'number' ? perfil.creditos : 0;
+            const logrosActuales = Array.isArray(perfil?.logros) ? perfil.logros : [];
+            updatePayload.creditos = creditosActuales + 50;
+            if (!logrosActuales.includes('Primeros pasos')) {
+                updatePayload.logros = [...logrosActuales, 'Primeros pasos'];
+            }
+        }
+
+        const { error: updateError } = await supabase
+            .from('perfiles')
+            .update(updatePayload)
+            .eq('id', user.id);
+
+        if (updateError) throw updateError;
+
+        res.status(200).send({
+            codigo: 0,
+            mensaje: skip ? 'Tour saltado' : 'Onboarding completado',
+            creditos: updatePayload.creditos ?? null,
+            logro: !skip ? 'Primeros pasos' : null,
+        });
+
+    } catch (error) {
+        console.log(error);
+        res.status(200).send({ codigo: 1, mensaje: error.message });
+    }
+});
+
 export default objetoRouter;

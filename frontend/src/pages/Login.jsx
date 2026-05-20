@@ -31,6 +31,10 @@ const Login = () => {
                 datosCliente: data.datosCliente
             });
 
+            if (!data.datosCliente?.onboarding_completado) {
+                window.dispatchEvent(new Event('scriptbay-show-tour'));
+            }
+
             console.log('[AUTH TRACE] login correcto para:', data?.datosCliente?.email);
             setMensaje('Login correcto. Redirigiendo al perfil...');
             navigate('/profile');
