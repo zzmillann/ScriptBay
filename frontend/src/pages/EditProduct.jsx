@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Euro, FileText, ImagePlus, Tag } from 'lucide-react';
+import { Coins, Euro, FileText, ImagePlus, Tag } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getSession, refreshSession } from '../services/authClient';
 import { normalizeImageUrl } from '../utils/imageUrl';
@@ -30,6 +30,7 @@ const EditProduct = () => {
     archivo: null,
     categoria: '',
     precio: '',
+    precio_sbt: '',
     telefono: '',
     email: '',
     github: '',
@@ -74,6 +75,7 @@ const EditProduct = () => {
           archivo: product.archivo || null,
           categoria: product.categoria || '',
           precio: product.precio ?? '',
+          precio_sbt: product.precio_sbt ?? '',
           telefono: product.telefono || '',
           email: product.email || '',
           github: product.github || '',
@@ -126,35 +128,32 @@ const EditProduct = () => {
       return;
     }
 
-    const payload = {
-      id,
-      tipo: formData.tipo,
-      titulo: formData.titulo.trim(),
-      descripcion: formData.descripcion.trim(),
-      imagen: normalizeImageUrl(formData.imagen),
-      categoria: formData.tipo === 'producto' ? formData.categoria.trim() : null,
-      precio: formData.precio === '' ? null : Number(formData.precio),
-      archivo: formData.tipo === 'producto' && formData.archivo
-        ? {
-            nombre: formData.archivo.name,
-            tipo: formData.archivo.type,
-            tamano: formData.archivo.size
-          }
-        : null,
-      telefono: formData.tipo === 'servicio' ? formData.telefono.trim() : null,
-      email: formData.tipo === 'servicio' ? formData.email.trim() : null,
-      github: formData.tipo === 'servicio' ? (formData.github.trim() || null) : null,
-      linkedin: formData.tipo === 'servicio' ? (formData.linkedin.trim() || null) : null
-    };
+    const fd = new FormData();
+    fd.append('id', id);
+    fd.append('tipo', formData.tipo);
+    fd.append('titulo', formData.titulo.trim());
+    fd.append('descripcion', formData.descripcion.trim());
+    fd.append('imagen', normalizeImageUrl(formData.imagen) || '');
+    fd.append('categoria', formData.tipo === 'producto' ? formData.categoria.trim() : '');
+    fd.append('precio', formData.precio === '' ? '' : String(Number(formData.precio)));
+    fd.append('precio_sbt', formData.precio_sbt === '' ? '' : String(Number(formData.precio_sbt)));
+    if (formData.tipo === 'producto' && formData.archivo instanceof File) {
+      fd.append('archivo', formData.archivo, formData.archivo.name);
+    }
+    if (formData.tipo === 'servicio') {
+      fd.append('telefono', formData.telefono.trim());
+      fd.append('email', formData.email.trim());
+      fd.append('github', formData.github.trim() || '');
+      fd.append('linkedin', formData.linkedin.trim() || '');
+    }
 
     try {
       const response = await fetch('http://localhost:3000/api/productos/ActualizarProducto', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${session.accessToken}`
         },
-        body: JSON.stringify(payload)
+        body: fd
       });
 
       const data = await parseApiResponse(response, 'No se pudo actualizar el producto');
@@ -229,10 +228,17 @@ const EditProduct = () => {
                   <input id="categoria" name="categoria" value={formData.categoria} onChange={handleInputChange} className="input-field" />
                 </div>
                 <div>
-                  <label htmlFor="precio" className="mb-2 block text-sm text-dimmed">Precio</label>
+                  <label htmlFor="precio" className="mb-2 block text-sm text-dimmed">Precio (EUR)</label>
                   <div className="relative">
                     <Euro className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
                     <input id="precio" name="precio" type="number" min="0" step="0.01" value={formData.precio} onChange={handleInputChange} className="input-field pl-10" />
+                  </div>
+                </div>
+                <div className="sm:col-span-2">
+                  <label htmlFor="precio_sbt" className="mb-2 block text-sm text-dimmed">Precio en SBT <span className="text-faint">(opcional, se auto-calcula si vacio)</span></label>
+                  <div className="relative">
+                    <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-400" />
+                    <input id="precio_sbt" name="precio_sbt" type="number" min="0" step="0.0001" value={formData.precio_sbt} onChange={handleInputChange} className="input-field pl-10" placeholder="Ej: 100" />
                   </div>
                 </div>
                 <div className="sm:col-span-2">
@@ -243,10 +249,17 @@ const EditProduct = () => {
             ) : (
               <>
                 <div>
-                  <label htmlFor="precio" className="mb-2 block text-sm text-dimmed">Precio del servicio</label>
+                  <label htmlFor="precio" className="mb-2 block text-sm text-dimmed">Precio del servicio (EUR)</label>
                   <div className="relative">
                     <Euro className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
                     <input id="precio" name="precio" type="number" min="0" step="0.01" value={formData.precio} onChange={handleInputChange} className="input-field pl-10" />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="precio_sbt" className="mb-2 block text-sm text-dimmed">Precio en SBT <span className="text-faint">(opcional)</span></label>
+                  <div className="relative">
+                    <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-400" />
+                    <input id="precio_sbt" name="precio_sbt" type="number" min="0" step="0.0001" value={formData.precio_sbt} onChange={handleInputChange} className="input-field pl-10" />
                   </div>
                 </div>
                 <div>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Activity,
@@ -9,10 +10,12 @@ import {
   Clock3,
   Copy,
   Download,
+  ExternalLink,
   FileCode2,
   GraduationCap,
   KeyRound,
   Layers3,
+  Loader2,
   Play,
   ShieldCheck,
   Sparkles,
@@ -22,6 +25,7 @@ import {
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { findPurchaseByProductId, buildPurchaseExperience, formatEurPrice } from '../data/purchaseExperience';
 import { mockPurchases } from '../components/profile/PurchasesGrid';
+import { getValidSession } from '../services/authClient';
 
 const iconByMode = {
   bot: Bot,
@@ -235,9 +239,41 @@ const WorkspaceRenderer = ({ experience, panelHoverClass }) => {
   return <LibraryWorkspace experience={experience} panelHoverClass={panelHoverClass} />;
 };
 
+const dataUrlToBlob = (dataUrl) => {
+  try {
+    const [meta, base64] = dataUrl.split(',');
+    const mime = /data:([^;]+)/.exec(meta || '')?.[1] || 'application/octet-stream';
+    const bin = atob(base64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  } catch {
+    return null;
+  }
+};
+
+const extensionPorMime = (mime) => {
+  const map = {
+    'application/zip': 'zip',
+    'application/x-zip-compressed': 'zip',
+    'application/json': 'json',
+    'application/pdf': 'pdf',
+    'text/plain': 'txt',
+    'text/javascript': 'js',
+    'text/x-python': 'py',
+    'application/x-tar': 'tar',
+    'application/gzip': 'gz',
+    'application/octet-stream': 'bin',
+  };
+  return map[mime] || 'bin';
+};
+
 const PurchasedAssetWorkspace = () => {
   const { id } = useParams();
   const location = useLocation();
+  const [descargando, setDescargando] = useState(false);
+  const [errorDescarga, setErrorDescarga] = useState(null);
+
   const purchase = location.state?.purchase || findPurchaseByProductId(mockPurchases, id) || {
     id,
     productId: id,
@@ -247,6 +283,38 @@ const PurchasedAssetWorkspace = () => {
     type: 'producto',
     status: 'completed',
     image: `https://picsum.photos/seed/workspace-${id}/1200/900`
+  };
+
+  const handleDescargar = async () => {
+    setDescargando(true);
+    setErrorDescarga(null);
+    try {
+      const session = await getValidSession();
+      if (!session?.accessToken) throw new Error('Sesión expirada');
+      const res = await fetch(`http://localhost:3000/api/productos/DescargarArchivo/${purchase.productId || id}`, {
+        headers: { Authorization: `Bearer ${session.accessToken}` },
+      });
+      const data = await res.json();
+      if (data.codigo !== 0) throw new Error(data.mensaje || 'No se pudo descargar el archivo');
+      if (!data.archivo) throw new Error('El producto no tiene archivo asociado.');
+
+      const blob = dataUrlToBlob(data.archivo);
+      if (!blob) throw new Error('Archivo corrupto');
+      const ext = extensionPorMime(blob.type);
+      const nombreSafe = (data.titulo || 'producto').replace(/[^a-z0-9\-_]+/gi, '_');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${nombreSafe}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    } catch (err) {
+      setErrorDescarga(err.message);
+    } finally {
+      setDescargando(false);
+    }
   };
 
   const experience = purchase.experience || buildPurchaseExperience(purchase);
@@ -325,6 +393,78 @@ const PurchasedAssetWorkspace = () => {
               </div>
             </div>
           </div>
+
+          <div className="rounded-[24px] border border-emerald-400/25 bg-gradient-to-br from-emerald-500/[0.08] via-zinc-900/70 to-black/80 p-5 md:p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-emerald-400/30 bg-emerald-500/10 text-emerald-200">
+                  <Download className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-emerald-300/80">Tu compra</p>
+                  <h2 className="mt-1 text-lg font-semibold text-zinc-100">Descarga el archivo del producto</h2>
+                  <p className="mt-1 text-xs text-zinc-400">Acceso exclusivo: solo tú (comprador verificado) puedes bajar este recurso.</p>
+                </div>
+              </div>
+              <button
+                onClick={handleDescargar}
+                disabled={descargando}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/35 bg-emerald-500/15 px-5 py-2.5 text-sm font-semibold text-emerald-100 transition-all hover:scale-[1.02] hover:bg-emerald-500/25 disabled:opacity-50 disabled:hover:scale-100"
+              >
+                {descargando ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Descargando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" /> Descargar archivo
+                  </>
+                )}
+              </button>
+            </div>
+            {errorDescarga && (
+              <p className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">{errorDescarga}</p>
+            )}
+          </div>
+
+          {experience.hasRealTx && (
+            <div className="rounded-[24px] border border-violet-400/25 bg-gradient-to-br from-violet-500/[0.08] via-zinc-900/70 to-black/80 p-5 md:p-6">
+              <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-violet-400/30 bg-violet-500/10 text-violet-200">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-violet-300/80">Certificado on-chain</p>
+                    <h2 className="mt-1 text-lg font-semibold text-zinc-100">Transaccion verificada en Sepolia</h2>
+                    <p className="mt-1 text-xs text-zinc-400">Tu compra ha minteado una licencia NFT registrada en la blockchain.</p>
+                  </div>
+                </div>
+                <a
+                  href={experience.explorerUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-violet-400/35 bg-violet-500/15 px-4 py-2.5 text-sm font-semibold text-violet-100 transition-all hover:scale-[1.02] hover:bg-violet-500/25"
+                >
+                  <ExternalLink className="h-4 w-4" /> Ver en Etherscan
+                </a>
+              </div>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Tx hash</p>
+                  <p className="mt-2 font-mono text-xs text-zinc-200 break-all">{experience.txHash}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Wallet propietaria</p>
+                  <p className="mt-2 font-mono text-xs text-zinc-200">{experience.walletShort}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Red</p>
+                  <p className="mt-2 text-sm font-semibold text-zinc-100">{experience.network}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <WorkspaceRenderer experience={experience} panelHoverClass={panelHoverClass} />
         </motion.div>

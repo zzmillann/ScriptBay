@@ -55,7 +55,7 @@ const Profile = () => {
     const isServiceProduct = (product) => String(product?.tipo || '').toLowerCase() === 'servicio';
     const publishedCount = misProductos.filter((p) => !isServiceProduct(p)).length;
     const activeServicesCount = misProductos.filter(isServiceProduct).length;
-    const purchases = user?.totalPurchases ?? 0;
+    const purchases = misCompras.length;
     const salesCount = user?.totalSales ?? (publishedCount * 3);
 
     const mockRating = 4.6;

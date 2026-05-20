@@ -1,0 +1,81 @@
+{
+  "name": "ScriptBay - Scan de archivos con Gemini",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scriptbay-scan",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-entrada",
+      "name": "Webhook ScriptBay",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 320]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepara el prompt para Gemini y decodifica el base64\nconst body = $input.first().json.body || $input.first().json;\nconst archivo = body.archivo || {};\nconst meta = body.metadata || {};\n\nlet contenidoLegible = '';\ntry {\n  const buff = Buffer.from(archivo.base64 || '', 'base64');\n  const esText = /text|json|xml|javascript|typescript|html|css|markdown|csv|sh|sql|python|yaml/i.test(archivo.mimetype || '');\n  if (esText) {\n    contenidoLegible = buff.toString('utf-8').slice(0, 80_000); // limite 80KB\n  } else {\n    contenidoLegible = `(Archivo binario de ${buff.length} bytes - nombre: ${archivo.nombre})`;\n  }\n} catch (e) {\n  contenidoLegible = '(No se pudo decodificar el archivo)';\n}\n\nconst prompt = `Eres un revisor de seguridad de un marketplace de scripts y plugins llamado ScriptBay.\nTu tarea es decidir si el siguiente archivo contiene codigo o contenido MALICIOSO.\nResponde EXCLUSIVAMENTE con un JSON valido con esta forma exacta:\n{\"aprobado\": true|false, \"motivo\": \"<motivo corto>\", \"detalle\": \"<explicacion 1-2 frases>\", \"score\": <0-100 donde 100 es totalmente seguro>}\n\nNo añadas texto fuera del JSON. No uses markdown.\n\nMetadata del producto:\n- Titulo: ${meta.titulo || '-'}\n- Tipo: ${meta.tipo || '-'}\n- Descripcion: ${meta.descripcion || '-'}\n- Categoria: ${meta.categoria || '-'}\n\nArchivo:\n- Nombre: ${archivo.nombre}\n- Mimetype: ${archivo.mimetype}\n\nContenido (puede estar truncado):\n---\n${contenidoLegible}\n---`;\n\nreturn [{ json: { prompt, meta, archivo: { nombre: archivo.nombre, mimetype: archivo.mimetype } } }];"
+      },
+      "id": "preparar-prompt",
+      "name": "Preparar prompt Gemini",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={{$env.GEMINI_API_KEY}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{ \"text\": $json.prompt }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\",\n    \"temperature\": 0.1\n  }\n}",
+        "options": {}
+      },
+      "id": "llamar-gemini",
+      "name": "Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 320]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrae el JSON que devuelve Gemini\nconst resp = $input.first().json;\nlet textoIa = '';\ntry {\n  textoIa = resp.candidates[0].content.parts[0].text;\n} catch (e) {\n  return [{ json: { aprobado: false, motivo: 'gemini-sin-respuesta', detalle: JSON.stringify(resp).slice(0,300) } }];\n}\n\ntry {\n  const parsed = JSON.parse(textoIa);\n  return [{ json: {\n    aprobado: Boolean(parsed.aprobado),\n    motivo: parsed.motivo || (parsed.aprobado ? 'ok' : 'rechazado'),\n    detalle: parsed.detalle || '',\n    score: parsed.score ?? null\n  }}];\n} catch (err) {\n  return [{ json: { aprobado: false, motivo: 'json-invalido', detalle: textoIa.slice(0, 300) } }];\n}"
+      },
+      "id": "parsear-veredicto",
+      "name": "Parsear veredicto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 320]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "responder",
+      "name": "Responder a ScriptBay",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, 320]
+    }
+  ],
+  "connections": {
+    "Webhook ScriptBay": { "main": [[{ "node": "Preparar prompt Gemini", "type": "main", "index": 0 }]] },
+    "Preparar prompt Gemini": { "main": [[{ "node": "Gemini", "type": "main", "index": 0 }]] },
+    "Gemini": { "main": [[{ "node": "Parsear veredicto", "type": "main", "index": 0 }]] },
+    "Parsear veredicto": { "main": [[{ "node": "Responder a ScriptBay", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1",
+  "id": "scriptbay-scan"
+}

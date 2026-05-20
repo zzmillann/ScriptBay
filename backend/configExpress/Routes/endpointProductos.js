@@ -3,9 +3,11 @@ import multer from 'multer';
 import { supabase } from '../supabaseClient.js';
 import stripeService from '../servicios/stripeService.js';
 import paypalService from '../servicios/paypalService.js';
+import { registroCompraStripe, verificarTxSepolia } from '../../services/blockchainservice.js';
 import { generarFacturaPDF } from '../servicios/facturaService.js';
 import mailjetService from '../servicios/mailjetService.js';
 import { crearNotificacion } from '../servicios/notificacionHelper.js';
+import { escanearArchivo } from '../servicios/scanService.js';
 const objetoRouter = express.Router();
 
 const multerMiddleware = multer({
@@ -32,11 +34,46 @@ objetoRouter.post('/GuardarProducto',
 
         if (authError) throw authError;
 
-        const { tipo, titulo, descripcion, imagen, categoria, precio, archivo, telefono, email, github, linkedin } = req.body;
+        const { tipo, titulo, descripcion, imagen, categoria, precio, precio_sbt, archivo, telefono, email, github, linkedin } = req.body;
 
-        // Si llega fichero via multipart lo convertimos a data URL, si no usamos el valor de req.body (base64 o null)
-        const imagenFinal = req.files?.imagen?.[0] ? bufferADataUrl(req.files.imagen[0]) : (imagen || null);
-        const archivoFinal = req.files?.archivo?.[0] ? bufferADataUrl(req.files.archivo[0]) : (archivo || null);
+        // Si llega fichero via multipart lo convertimos a data URL.
+        // Si NO llega multipart pero el body trae "archivo" como string data URL, lo usamos.
+        // Si llega como objeto/JSON (metadata sin binario) lo descartamos -> evita guardar basura.
+        const imagenFinal = req.files?.imagen?.[0]
+            ? bufferADataUrl(req.files.imagen[0])
+            : (typeof imagen === 'string' && imagen.startsWith('data:') ? imagen : (typeof imagen === 'string' ? imagen : null));
+        const archivoFinal = req.files?.archivo?.[0]
+            ? bufferADataUrl(req.files.archivo[0])
+            : (typeof archivo === 'string' && archivo.startsWith('data:') ? archivo : null);
+
+        // FormData manda todo como string; normalizamos numericos.
+        const toNumOrNull = (v) => (v === '' || v === null || v === undefined ? null : Number(v));
+        const precioFinal = toNumOrNull(precio);
+        const precioSbtFinal = toNumOrNull(precio_sbt);
+
+        // ─── Escaneo n8n + Gemini ─────────────────────────────────────────
+        // Si hay archivo binario, lo mandamos al workflow para que Gemini lo valide.
+        // Si NO esta aprobado, abortamos el insert.
+        let veredictoIa = null;
+        const ficheroSubido = req.files?.archivo?.[0];
+        if (ficheroSubido) {
+            veredictoIa = await escanearArchivo(
+                {
+                    nombre: ficheroSubido.originalname,
+                    mimetype: ficheroSubido.mimetype,
+                    base64: ficheroSubido.buffer.toString('base64'),
+                },
+                { tipo, titulo, descripcion, categoria, userId: user.id, userEmail: user.email }
+            );
+            console.log('[GuardarProducto] Veredicto IA:', veredictoIa);
+            if (!veredictoIa.aprobado) {
+                return res.status(200).send({
+                    codigo: 2, // codigo especifico para "rechazado por IA"
+                    mensaje: `Producto rechazado por la IA de seguridad: ${veredictoIa.motivo}`,
+                    veredicto: veredictoIa,
+                });
+            }
+        }
 
         const { data: nuevoProducto, error } = await supabase
             .from('productos')
@@ -47,7 +84,8 @@ objetoRouter.post('/GuardarProducto',
                 descripcion,
                 imagen: imagenFinal,
                 categoria: categoria || null,
-                precio: precio ?? null,
+                precio: precioFinal,
+                precio_sbt: precioSbtFinal,
                 archivo: archivoFinal,
                 telefono: telefono || null,
                 email: email || null,
@@ -88,7 +126,8 @@ objetoRouter.post('/GuardarProducto',
 
         res.status(200).send({
             codigo: 0,
-            mensaje: 'Producto guardado correctamente'
+            mensaje: 'Producto guardado correctamente',
+            veredicto: veredictoIa,
         });
 
     } catch (error) {
@@ -227,7 +266,7 @@ objetoRouter.post('/ActualizarProducto',
 
         if (authError) throw authError;
 
-        const { id, tipo, titulo, descripcion, imagen, categoria, precio, archivo, telefono, email, github, linkedin } = req.body;
+        const { id, tipo, titulo, descripcion, imagen, categoria, precio, precio_sbt, archivo, telefono, email, github, linkedin } = req.body;
 
         if (!id) throw new Error('ID de producto requerido');
 
@@ -243,24 +282,33 @@ objetoRouter.post('/ActualizarProducto',
             throw new Error('No tienes permisos para editar este producto');
         }
 
-        const imagenFinal = req.files?.imagen?.[0] ? bufferADataUrl(req.files.imagen[0]) : (imagen || null);
-        const archivoFinal = req.files?.archivo?.[0] ? bufferADataUrl(req.files.archivo[0]) : (archivo || null);
+        const imagenFinal = req.files?.imagen?.[0]
+            ? bufferADataUrl(req.files.imagen[0])
+            : (typeof imagen === 'string' && imagen.startsWith('data:') ? imagen : (typeof imagen === 'string' ? imagen : null));
+        const archivoFinal = req.files?.archivo?.[0]
+            ? bufferADataUrl(req.files.archivo[0])
+            : (typeof archivo === 'string' && archivo.startsWith('data:') ? archivo : null);
+
+        const toNumOrNull = (v) => (v === '' || v === null || v === undefined ? null : Number(v));
+        const updateFields = {
+            tipo,
+            titulo,
+            descripcion,
+            imagen: imagenFinal,
+            categoria: categoria || null,
+            precio: toNumOrNull(precio),
+            precio_sbt: toNumOrNull(precio_sbt),
+            telefono: telefono || null,
+            email: email || null,
+            github: github || null,
+            linkedin: linkedin || null,
+        };
+        // Solo pisamos el archivo si vino uno nuevo (binario o data URL), si no respetamos el existente.
+        if (archivoFinal) updateFields.archivo = archivoFinal;
 
         const { error } = await supabase
             .from('productos')
-            .update({
-                tipo,
-                titulo,
-                descripcion,
-                imagen: imagenFinal,
-                categoria: categoria || null,
-                precio: precio ?? null,
-                archivo: archivoFinal,
-                telefono: telefono || null,
-                email: email || null,
-                github: github || null,
-                linkedin: linkedin || null
-            })
+            .update(updateFields)
             .eq('id', id)
             .eq('user_id', user.id);
 
@@ -481,14 +529,14 @@ objetoRouter.post('/IniciarPagoPayPal', async (req, res, next) => {
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError) throw authError;
 
-        const { idProducto, titulo, precio } = req.body;
+        const { idProducto, titulo, precio, wallet } = req.body;
         if (!idProducto || !titulo || precio === undefined) throw new Error('Faltan datos del producto');
 
         console.log("=== INICIO DE PAGO PAYPAL ===");
-        console.log("Usuario:", user.email, "| Producto:", titulo, "| Precio:", precio, "EUR");
+        console.log("Usuario:", user.email, "| Producto:", titulo, "| Precio:", precio, "EUR", "| Wallet:", wallet || '(sin wallet)');
 
         // Stage 1: crear la orden en PayPal
-        const order = await paypalService.Stage1_createOrderPayPal(user.id, idProducto, titulo, precio);
+        const order = await paypalService.Stage1_createOrderPayPal(user.id, idProducto, titulo, precio, wallet);
         if (!order) throw new Error('No se ha podido crear la orden de pago en PayPal');
 
         // Buscamos el link de aprobacion que PayPal devuelve en el array links
@@ -512,7 +560,7 @@ objetoRouter.post('/IniciarPagoPayPal', async (req, res, next) => {
 
 objetoRouter.get('/PaypalCallback', async (req, res, next) => {
     try {
-        const { idUsuario, idProducto, titulo, precio, token: orderId, cancel } = req.query;
+        const { idUsuario, idProducto, titulo, precio, token: orderId, cancel, wallet } = req.query;
 
         console.log("=== PAYPAL CALLBACK ===", req.query);
 
@@ -527,6 +575,29 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
 
         console.log("PayPal pago capturado OK - Order ID:", orderId);
 
+        let blockchainHash = null;
+        let tokenIdNft = null;
+        if (wallet) {
+            try {
+                const fechaActual = new Date();
+                const fecha = fechaActual.getDate();
+                const hora = fechaActual.getHours();
+                const mintResult = await registroCompraStripe(
+                    wallet,
+                    'paypal_customer', 'paypal_card', Math.round(parseFloat(precio || 0)), 'eur',
+                    `Compra ScriptBay PayPal: ${decodeURIComponent(titulo || '')}`, true,
+                    true, 'paypal', true, fecha, hora, orderId
+                );
+                blockchainHash = mintResult?.tx || null;
+                tokenIdNft = mintResult?.tokenId || null;
+                console.log('PayPal NFT minteado - tx:', blockchainHash, '| tokenId:', tokenIdNft);
+            } catch (mintError) {
+                console.log('[PayPalCallback] Error minteando NFT:', mintError.message);
+            }
+        } else {
+            console.log('PayPal sin wallet conectada - no se mintea NFT');
+        }
+
         if (idUsuario) {
             await supabase.from('compras').insert({
                 user_id: idUsuario,
@@ -534,7 +605,8 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
                 titulo: decodeURIComponent(titulo || 'Producto ScriptBay'),
                 precio: parseFloat(precio) || 0,
                 metodo_pago: 'PayPal',
-                id_transaccion: orderId
+                id_transaccion: orderId,
+                blockchain_hash: blockchainHash
             });
             console.log('Compra PayPal guardada en BD para el historial del usuario');
 
@@ -611,6 +683,150 @@ objetoRouter.get('/PaypalCallback', async (req, res, next) => {
             </body>
             </html>
         `);
+    }
+});
+
+// ─── PAGO CRYPTO (SBT) ───────────────────────────────────────────────────────
+// El frontend ya ha enviado el transfer de SBT al marketplace y nos pasa el txHash.
+// Verificamos en cadena, guardamos compra y minteamos licencia NFT al comprador.
+objetoRouter.post('/RegistrarCompraCrypto', async (req, res, next) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token) throw new Error('No autorizado');
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError) throw authError;
+
+        const { idProducto, titulo, precio, txHash, wallet } = req.body;
+        if (!txHash) throw new Error('Falta txHash');
+        if (!wallet) throw new Error('Falta wallet del comprador');
+
+        console.log('=== INICIO PAGO CRYPTO (SBT) ===');
+        console.log('Comprador:', user.email, '| txHash:', txHash, '| wallet:', wallet);
+
+        // Verificacion on-chain del transfer
+        const receipt = await verificarTxSepolia(txHash);
+        if (!receipt) throw new Error('No se pudo verificar la transaccion en Sepolia');
+        if (receipt.status !== 'success' && receipt.status !== 1) {
+            throw new Error(`La transaccion ${txHash} no fue exitosa`);
+        }
+
+        const isValidUUID = (id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id || ''));
+        const productoIdFinal = isValidUUID(idProducto) ? idProducto : null;
+
+        // Mintea la licencia NFT al comprador
+        let blockchainHash = null;
+        let tokenIdNft = null;
+        try {
+            const fechaActual = new Date();
+            const fecha = fechaActual.getDate();
+            const hora = fechaActual.getHours();
+            const mintResult = await registroCompraStripe(
+                wallet,
+                'sbt_customer', 'sbt_card', Math.round(parseFloat(precio || 0)), 'sbt',
+                `Compra ScriptBay SBT: ${titulo}`, true,
+                true, 'sbt', true, fecha, hora, txHash
+            );
+            blockchainHash = mintResult?.tx || null;
+            tokenIdNft = mintResult?.tokenId || null;
+            console.log('Licencia NFT minteada - tx:', blockchainHash, '| tokenId:', tokenIdNft);
+        } catch (mintError) {
+            console.log('[RegistrarCompraCrypto] Error minteando NFT:', mintError.message);
+        }
+
+        const { error: insertError } = await supabase.from('compras').insert({
+            user_id: user.id,
+            producto_id: productoIdFinal,
+            titulo,
+            precio,
+            metodo_pago: 'SBT',
+            id_transaccion: txHash,
+            blockchain_hash: blockchainHash || txHash,
+        });
+        if (insertError) console.log('[RegistrarCompraCrypto] Error guardando compra:', insertError.message);
+
+        if (productoIdFinal) {
+            const { data: productoVendedor } = await supabase
+                .from('productos')
+                .select('user_id')
+                .eq('id', productoIdFinal)
+                .single();
+            if (productoVendedor?.user_id && productoVendedor.user_id !== user.id) {
+                await crearNotificacion(productoVendedor.user_id, 'compra', {
+                    titulo,
+                    precio,
+                    compradorId: user.id,
+                    productoId: productoIdFinal,
+                    metodo: 'SBT',
+                });
+            }
+        }
+
+        res.status(200).send({
+            codigo: 0,
+            mensaje: 'Pago en SBT registrado correctamente',
+            txHash,
+            blockchainHash: blockchainHash || txHash,
+            tokenId: tokenIdNft,
+        });
+
+    } catch (error) {
+        console.log('ERROR en /RegistrarCompraCrypto:', error);
+        res.status(200).send({ codigo: 1, mensaje: error.message });
+    }
+});
+
+// ─── DESCARGA DEL ARCHIVO COMPRADO ──────────────────────────────────────────
+// Solo el comprador (con compra registrada en esa fila) o el vendedor pueden bajar el archivo.
+objetoRouter.get('/DescargarArchivo/:idProducto', async (req, res) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token) throw new Error('No autorizado');
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError) throw authError;
+
+        const { idProducto } = req.params;
+
+        // 1) cargamos producto (necesitamos archivo + vendedor)
+        const { data: producto, error: prodError } = await supabase
+            .from('productos')
+            .select('id, user_id, titulo, archivo')
+            .eq('id', idProducto)
+            .single();
+        if (prodError) throw prodError;
+        if (!producto?.archivo) {
+            return res.status(200).send({ codigo: 1, mensaje: 'Este producto no tiene archivo descargable.' });
+        }
+
+        // 2) acceso: vendedor siempre puede, comprador solo si tiene compra registrada
+        const esVendedor = producto.user_id === user.id;
+        let esComprador = false;
+        if (!esVendedor) {
+            const { data: compra } = await supabase
+                .from('compras')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('producto_id', idProducto)
+                .limit(1);
+            esComprador = (compra || []).length > 0;
+        }
+        if (!esVendedor && !esComprador) {
+            return res.status(403).send({ codigo: 2, mensaje: 'No tienes una compra registrada de este producto.' });
+        }
+
+        // 3) devolvemos como data URL para que el front lo trate
+        res.status(200).send({
+            codigo: 0,
+            titulo: producto.titulo,
+            archivo: producto.archivo,
+        });
+
+    } catch (error) {
+        console.log('ERROR en /DescargarArchivo:', error);
+        res.status(200).send({ codigo: 1, mensaje: error.message });
     }
 });
 
