@@ -53,9 +53,11 @@ export default {
 
     // 1º PASO: crear la orden de pago en PayPal
     // Devuelve el objeto ORDER completo de PayPal (contiene el link de aprobacion)
-    Stage1_createOrderPayPal: async (idUsuario, idProducto, titulo, precio) => {
+    Stage1_createOrderPayPal: async (idUsuario, idProducto, titulo, precio, wallet) => {
         try {
             const accessToken = await getPayPalAccessToken();
+
+            const walletParam = wallet ? `&wallet=${encodeURIComponent(wallet)}` : '';
 
             const orderPayload = {
                 intent: 'CAPTURE',
@@ -75,7 +77,7 @@ export default {
                     user_action: 'PAY_NOW',
                     // PayPal redirige aqui cuando el usuario aprueba o cancela
                     // El backend captura y manda postMessage al popup (tecnica del proyecto de clase)
-                    return_url: `${process.env.BACKEND_URL}/api/productos/PaypalCallback?idUsuario=${idUsuario}&idProducto=${idProducto}&titulo=${encodeURIComponent(titulo)}&precio=${precio}`,
+                    return_url: `${process.env.BACKEND_URL}/api/productos/PaypalCallback?idUsuario=${idUsuario}&idProducto=${idProducto}&titulo=${encodeURIComponent(titulo)}&precio=${precio}${walletParam}`,
                     cancel_url: `${process.env.BACKEND_URL}/api/productos/PaypalCallback?idUsuario=${idUsuario}&idProducto=${idProducto}&cancel=true`
                 }
             };

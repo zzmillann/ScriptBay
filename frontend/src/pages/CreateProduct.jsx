@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Euro, FileText, ImagePlus, Tag } from 'lucide-react';
+import { Coins, Euro, FileText, ImagePlus, Tag } from 'lucide-react';
 import { clearSession, getValidSession } from '../services/authClient.js';
 import { normalizeImageUrl } from '../utils/imageUrl.js';
+import ScanProgressModal from '../components/ScanProgressModal.jsx';
 
 const parseApiResponse = async (response, defaultMessage) => {
   const contentType = response.headers.get('content-type') || '';
@@ -22,6 +23,7 @@ const initialForm = {
   archivo: null,
   categoria: '',
   precio: '',
+  precio_sbt: '',
   telefono: '',
   email: '',
   github: '',
@@ -32,6 +34,14 @@ const CreateProduct = () => {
   const [formData, setFormData] = useState(initialForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
+
+  // Estado del modal de escaneo IA
+  const [scanModal, setScanModal] = useState({
+    abierto: false,
+    estado: 'idle', // 'enviando' | 'ok' | 'rechazado' | 'error'
+    veredicto: null,
+    mensajeError: '',
+  });
 
   const isProduct = useMemo(() => formData.tipo === 'producto', [formData.tipo]);
   const accentInteractiveClass = isProduct
@@ -66,6 +76,7 @@ const CreateProduct = () => {
       archivo: null,
       categoria: '',
       precio: '',
+      precio_sbt: '',
       telefono: '',
       email: '',
       github: '',
@@ -90,30 +101,33 @@ const CreateProduct = () => {
     setIsSubmitting(true);
     setFeedback({ type: '', message: '' });
 
-    const payload = {
-      tipo: formData.tipo,
-      titulo: formData.titulo.trim(),
-      descripcion: formData.descripcion.trim(),
-      imagen: normalizeImageUrl(formData.imagen)
-    };
-
-    if (formData.tipo === 'producto') {
-      payload.archivo = formData.archivo
-        ? {
-            nombre: formData.archivo.name,
-            tipo: formData.archivo.type,
-            tamano: formData.archivo.size
-          }
-        : null;
-      payload.categoria = formData.categoria.trim();
-    } else {
-      payload.telefono = formData.telefono.trim();
-      payload.email = formData.email.trim();
-      payload.github = formData.github.trim() || null;
-      payload.linkedin = formData.linkedin.trim() || null;
+    // Si hay archivo adjunto, abrimos el modal de escaneo IA.
+    const tieneArchivo = formData.tipo === 'producto' && formData.archivo instanceof File;
+    if (tieneArchivo) {
+      setScanModal({ abierto: true, estado: 'enviando', veredicto: null, mensajeError: '' });
     }
 
-    payload.precio = formData.precio === '' ? null : Number(formData.precio);
+    // Construimos FormData para poder enviar el ARCHIVO BINARIO real (multer lo recoge).
+    const fd = new FormData();
+    fd.append('tipo', formData.tipo);
+    fd.append('titulo', formData.titulo.trim());
+    fd.append('descripcion', formData.descripcion.trim());
+    fd.append('imagen', normalizeImageUrl(formData.imagen) || '');
+
+    if (formData.tipo === 'producto') {
+      fd.append('categoria', formData.categoria.trim());
+      if (formData.archivo instanceof File) {
+        fd.append('archivo', formData.archivo, formData.archivo.name);
+      }
+    } else {
+      fd.append('telefono', formData.telefono.trim());
+      fd.append('email', formData.email.trim());
+      fd.append('github', formData.github.trim() || '');
+      fd.append('linkedin', formData.linkedin.trim() || '');
+    }
+
+    fd.append('precio', formData.precio === '' ? '' : String(Number(formData.precio)));
+    fd.append('precio_sbt', formData.precio_sbt === '' ? '' : String(Number(formData.precio_sbt)));
 
     try {
       const session = await getValidSession();
@@ -123,13 +137,13 @@ const CreateProduct = () => {
         throw new Error('Tu sesion ha expirado. Inicia sesion de nuevo para publicar.');
       }
 
+      // OJO: NO ponemos Content-Type, el navegador lo setea con el boundary correcto.
       const response = await fetch('http://localhost:3000/api/productos/GuardarProducto', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`
         },
-        body: JSON.stringify(payload)
+        body: fd
       });
 
       if (!response.ok) {
@@ -137,6 +151,21 @@ const CreateProduct = () => {
       }
 
       const data = await parseApiResponse(response, 'No se pudo guardar el producto');
+
+      if (data.codigo === 2) {
+        // Rechazado por la IA
+        setScanModal({
+          abierto: true,
+          estado: 'rechazado',
+          veredicto: data.veredicto || { motivo: data.mensaje, detalle: null, score: null },
+          mensajeError: '',
+        });
+        setFeedback({
+          type: 'error',
+          message: data.mensaje || 'Producto rechazado por la IA de seguridad.',
+        });
+        return;
+      }
 
       if (data.codigo !== 0) {
         const rawMessage = String(data.mensaje || '');
@@ -147,16 +176,32 @@ const CreateProduct = () => {
         throw new Error(data.mensaje || 'No se pudo guardar el producto.');
       }
 
+      // OK
+      if (tieneArchivo) {
+        setScanModal({
+          abierto: true,
+          estado: 'ok',
+          veredicto: data.veredicto || { motivo: 'ok', detalle: 'Archivo limpio', score: 100 },
+          mensajeError: '',
+        });
+      }
       setFeedback({
         type: 'success',
         message: `${formData.tipo === 'producto' ? 'Producto' : 'Servicio'} enviado correctamente.`
       });
-
       setFormData((prev) => ({
         ...initialForm,
-        tipo: prev.tipo
+        tipo: prev.tipo,
       }));
     } catch (error) {
+      if (tieneArchivo) {
+        setScanModal({
+          abierto: true,
+          estado: 'error',
+          veredicto: null,
+          mensajeError: error.message || 'Error de red',
+        });
+      }
       setFeedback({
         type: 'error',
         message: error.message || 'Ocurrio un error inesperado.'
@@ -294,48 +339,90 @@ const CreateProduct = () => {
                     />
                   </div>
 
-                  <div>
-                    <label htmlFor="precio" className={labelClass}>
-                      Precio
-                    </label>
-                    <div className="relative">
-                      <Euro className={iconRightClass} />
-                      <input
-                        id="precio"
-                        name="precio"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        required={isProduct}
-                        value={formData.precio}
-                        onChange={handleInputChange}
-                        className={inputWithIconRight}
-                        placeholder="0.00"
-                      />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="precio" className={labelClass}>
+                        Precio (EUR)
+                      </label>
+                      <div className="relative">
+                        <Euro className={iconRightClass} />
+                        <input
+                          id="precio"
+                          name="precio"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          required={isProduct}
+                          value={formData.precio}
+                          onChange={handleInputChange}
+                          className={inputWithIconRight}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="precio_sbt" className={labelClass}>
+                        Precio en SBT <span className="text-faint font-normal">(opcional)</span>
+                      </label>
+                      <div className="relative">
+                        <Coins className={`${iconRightClass} !text-amber-400`} />
+                        <input
+                          id="precio_sbt"
+                          name="precio_sbt"
+                          type="number"
+                          min="0"
+                          step="0.0001"
+                          value={formData.precio_sbt}
+                          onChange={handleInputChange}
+                          className={inputWithIconRight}
+                          placeholder="Por defecto = mismo numero que EUR"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className={`${sectionClass} ${sectionInteractiveClass}`}>
                   <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-subtle">Contacto</h2>
-                  <div>
-                    <label htmlFor="precio" className={labelClass}>
-                      Precio del servicio
-                    </label>
-                    <div className="relative">
-                      <Euro className={iconRightClass} />
-                      <input
-                        id="precio"
-                        name="precio"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        required={!isProduct}
-                        value={formData.precio}
-                        onChange={handleInputChange}
-                        className={inputWithIconRight}
-                        placeholder="0.00"
-                      />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="precio" className={labelClass}>
+                        Precio (EUR)
+                      </label>
+                      <div className="relative">
+                        <Euro className={iconRightClass} />
+                        <input
+                          id="precio"
+                          name="precio"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          required={!isProduct}
+                          value={formData.precio}
+                          onChange={handleInputChange}
+                          className={inputWithIconRight}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="precio_sbt" className={labelClass}>
+                        Precio en SBT <span className="text-faint font-normal">(opcional)</span>
+                      </label>
+                      <div className="relative">
+                        <Coins className={`${iconRightClass} !text-amber-400`} />
+                        <input
+                          id="precio_sbt"
+                          name="precio_sbt"
+                          type="number"
+                          min="0"
+                          step="0.0001"
+                          value={formData.precio_sbt}
+                          onChange={handleInputChange}
+                          className={inputWithIconRight}
+                          placeholder="Por defecto = mismo numero que EUR"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -431,6 +518,17 @@ const CreateProduct = () => {
         </form>
         </div>
       </div>
+
+      <ScanProgressModal
+        abierto={scanModal.abierto}
+        estado={scanModal.estado}
+        veredicto={scanModal.veredicto}
+        mensajeError={scanModal.mensajeError}
+        onCerrar={() => setScanModal((s) => ({ ...s, abierto: false }))}
+        onReintentar={() => {
+          setScanModal({ abierto: false, estado: 'idle', veredicto: null, mensajeError: '' });
+        }}
+      />
     </section>
   );
 };

@@ -62,3 +62,20 @@ export async function obtenerCompras() {
     )
     return result
 }
+
+// Verifica que una tx en Sepolia este confirmada y devuelve el recibo basico.
+export async function verificarTxSepolia(txHash) {
+    if (!txHash) return null;
+    try {
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+        return {
+            status: receipt.status,
+            from: receipt.from,
+            to: receipt.to,
+            blockNumber: Number(receipt.blockNumber),
+        };
+    } catch (err) {
+        console.log('[verificarTxSepolia] Error:', err.message);
+        return null;
+    }
+}

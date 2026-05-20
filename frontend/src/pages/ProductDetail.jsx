@@ -1,16 +1,23 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Check, Clipboard, Copy, ExternalLink, MessageCircle, QrCode, ShoppingCart, Star, ShieldCheck, PackageCheck, ClipboardList, X, CreditCard, CheckCircle, AlertCircle, Loader, Share2 } from 'lucide-react';
+import { ArrowLeft, Check, Clipboard, Copy, ExternalLink, MessageCircle, QrCode, ShoppingCart, Star, ShieldCheck, PackageCheck, ClipboardList, X, CreditCard, CheckCircle, AlertCircle, Loader, Share2, Coins } from 'lucide-react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import QrModal from '../components/QrModal';
 import { getProductById, getRelatedProducts } from '../data/products';
 import { postPagarProducto } from '../services/stripeClient';
 import { postIniciarPagoPayPal } from '../services/paypalClient';
+import { postRegistrarCompraCrypto } from '../services/cryptoClient';
 import { getSession } from '../services/authClient';
 import { normalizeImageUrl } from '../utils/imageUrl';
 import { buildPurchaseExperience, formatEthPrice, formatEurPrice } from '../data/purchaseExperience';
-import { useAccount } from 'wagmi';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
+import { parseUnits, formatUnits } from 'viem';
+import { TOKEN_ADDRESS, TOKEN_ABI, MARKETPLACE_WALLET, SWAP_ADDRESS, SWAP_ABI } from '../utils/sbtConfig';
+
+// EUR/ETH de referencia para auto-calcular SBT si el vendedor no fijo precio en SBT.
+// Aprox: 1 ETH = 3490 EUR (igual que purchaseExperience.js).
+const EUR_POR_ETH = 3490;
 
 
 
@@ -38,7 +45,9 @@ const sectionBaseClass =
 const ProductDetail = () => {
   const { id } = useParams();
   const location = useLocation();
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [session] = useState(getSession());
@@ -49,7 +58,9 @@ const ProductDetail = () => {
   const [hashBlockchain, setHashBlockchain] = useState('');
   const [tokenIdBlockchain, setTokenIdBlockchain] = useState('');
   const [metodoPago, setMetodoPago] = useState('visa');
-  const [tipoPago, setTipoPago] = useState('stripe'); // 'stripe' | 'paypal'
+  const [tipoPago, setTipoPago] = useState('stripe'); // 'stripe' | 'paypal' | 'sbt'
+  const [precioSbt, setPrecioSbt] = useState(null);
+  const [balanceSbt, setBalanceSbt] = useState(null);
   const [qrOpen, setQrOpen] = useState(false);
   const [copiedShare, setCopiedShare] = useState('');
   const productUrl = typeof window !== 'undefined' ? `${window.location.origin}/producto/${id}` : '';
@@ -88,6 +99,7 @@ const ProductDetail = () => {
             title: p.titulo,
             description: p.descripcion,
             price: p.precio,
+            precio_sbt: p.precio_sbt,
             image: normalizeImageUrl(p.imagen) || `https://picsum.photos/seed/${p.id}/1200/900`,
             category: p.categoria || p.tipo || 'General',
             rating: 5.0,
@@ -139,7 +151,7 @@ const ProductDetail = () => {
     setEstadoPago('cargando');
     console.log('[ScriptBay] Iniciando pago PayPal - Producto:', product.title, '| Precio:', product.price, 'EUR');
 
-    const resultado = await postIniciarPagoPayPal(product.id, product.title, product.price);
+    const resultado = await postIniciarPagoPayPal(product.id, product.title, product.price, address);
     if (resultado.codigo !== 0) {
       setEstadoPago('error');
       setMensajePago(resultado.mensaje);
@@ -199,6 +211,116 @@ const ProductDetail = () => {
       console.log("[ScriptBay] Error en el pago:", resultado.mensaje);
     }
   };
+
+  // Pago directo en SBT: transfer del comprador al marketplace, luego backend mintea la licencia.
+  const handleConfirmarPagoSBT = async () => {
+    if (!isConnected || !walletClient) {
+      setEstadoPago('error');
+      setMensajePago('Necesitas conectar tu wallet para pagar con SBT.');
+      return;
+    }
+    if (!TOKEN_ADDRESS || TOKEN_ADDRESS.startsWith('0x000000')) {
+      setEstadoPago('error');
+      setMensajePago('Los contratos SBT no están desplegados todavía. Ejecuta el deploy y rellena VITE_SBT_TOKEN/SWAP.');
+      return;
+    }
+    setEstadoPago('cargando');
+    try {
+      if (!precioSbt || precioSbt <= 0) {
+        setEstadoPago('error');
+        setMensajePago('Precio en SBT no disponible.');
+        return;
+      }
+      const cantidad = parseUnits(String(precioSbt), 18);
+      const txHash = await walletClient.writeContract({
+        address: TOKEN_ADDRESS,
+        abi: TOKEN_ABI,
+        functionName: 'transfer',
+        args: [MARKETPLACE_WALLET, cantidad],
+        account: address,
+      });
+      console.log('[ScriptBay] SBT transfer enviado:', txHash);
+      await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+      const resultado = await postRegistrarCompraCrypto({
+        idProducto: product.id,
+        titulo: product.title,
+        precio: product.price,
+        precioSbt,
+        txHash,
+        wallet: address,
+      });
+
+      if (resultado.codigo === 0) {
+        setEstadoPago('ok');
+        setMensajePago(resultado.mensaje || 'Pago en SBT confirmado.');
+        setHashBlockchain(resultado.blockchainHash || txHash);
+        setTokenIdBlockchain(resultado.tokenId || '');
+      } else {
+        setEstadoPago('error');
+        setMensajePago(resultado.mensaje || 'No se pudo registrar la compra en backend.');
+      }
+    } catch (err) {
+      console.error('[ScriptBay] Error pago SBT:', err);
+      setEstadoPago('error');
+      setMensajePago(err.shortMessage || err.message || 'Error en pago con SBT.');
+    }
+  };
+
+  // Carga balance SBT cuando se abre el modal y la wallet esta conectada.
+  useEffect(() => {
+    const cargarBalance = async () => {
+      if (!isConnected || !address || !publicClient || !TOKEN_ADDRESS || TOKEN_ADDRESS.startsWith('0x000000')) {
+        setBalanceSbt(null);
+        return;
+      }
+      try {
+        const bal = await publicClient.readContract({
+          address: TOKEN_ADDRESS,
+          abi: TOKEN_ABI,
+          functionName: 'balanceOf',
+          args: [address],
+        });
+        setBalanceSbt(Number(formatUnits(bal, 18)));
+      } catch (err) {
+        setBalanceSbt(null);
+      }
+    };
+    if (modalAbierto && tipoPago === 'sbt') cargarBalance();
+  }, [modalAbierto, tipoPago, isConnected, address, publicClient]);
+
+  // Calcula el precio en SBT:
+  // 1) Si el vendedor lo fijo (product.precio_sbt) -> ese valor
+  // 2) Si no -> tasa del swap: EUR -> ETH -> SBT
+  useEffect(() => {
+    const calcular = async () => {
+      if (!product) return;
+      if (product.precio_sbt !== null && product.precio_sbt !== undefined && product.precio_sbt !== '') {
+        setPrecioSbt(Number(product.precio_sbt));
+        return;
+      }
+      const precioEur = Number(product.price) || 0;
+      if (!publicClient || !SWAP_ADDRESS || SWAP_ADDRESS.startsWith('0x000000')) {
+        // Sin swap accesible: fallback 1 EUR = 1 SBT
+        setPrecioSbt(precioEur);
+        return;
+      }
+      try {
+        const sbtPorEth = await publicClient.readContract({
+          address: SWAP_ADDRESS,
+          abi: SWAP_ABI,
+          functionName: 'sbtPorEth',
+        });
+        const ethEquivalente = precioEur / EUR_POR_ETH;
+        const sbtPorEthNum = Number(formatUnits(sbtPorEth, 18));
+        const sbtFinal = +(ethEquivalente * sbtPorEthNum).toFixed(4);
+        setPrecioSbt(sbtFinal);
+      } catch {
+        setPrecioSbt(precioEur);
+      }
+    };
+    calcular();
+  }, [product?.price, product?.precio_sbt, publicClient]);
 
   const esPropietario = session && product && session.datosCliente?.id === product.user_id;
 
@@ -381,15 +503,17 @@ const ProductDetail = () => {
                       {copiedShare === 'link' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       Copiar enlace
                     </button>
-                    <a
-                      href={ownership.explorerUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-2 btn-secondary text-sm hover:scale-[1.03]"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      Ver tx
-                    </a>
+                    {ownership.hasRealTx && (
+                      <a
+                        href={ownership.explorerUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 btn-secondary text-sm hover:scale-[1.03]"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Ver tx
+                      </a>
+                    )}
                   </div>
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -455,7 +579,7 @@ const ProductDetail = () => {
             </div>
           </motion.div>
 
-          <motion.div variants={itemVariants} className="grid gap-6 lg:grid-cols-2">
+          <motion.div variants={itemVariants}>
             <div className={sectionClass}>
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -464,7 +588,7 @@ const ProductDetail = () => {
                 </div>
                 <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${accentBadgeClass}`}>Licencia on-chain</span>
               </div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Wallet propietaria</p>
                   <p className="mt-2 font-mono text-sm text-base-primary">{ownership.walletShort}</p>
@@ -473,41 +597,15 @@ const ProductDetail = () => {
                   <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Tx hash</p>
                   <p className="mt-2 font-mono text-sm text-base-primary">{ownership.txHashShort}</p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Fecha de compra / mint</p>
-                  <p className="mt-2 text-sm text-base-primary">{ownership.mintedAt}</p>
-                </div>
+                {ownership.hasMintDate && (
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Fecha de compra</p>
+                    <p className="mt-2 text-sm text-base-primary">{ownership.mintedAt}</p>
+                  </div>
+                )}
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Red usada</p>
                   <p className="mt-2 text-sm text-base-primary">{ownership.network}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className={sectionClass}>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-base font-semibold text-base-primary">Trazabilidad</h3>
-                  <p className="mt-1 text-sm text-dimmed">Contexto comercial y de ownership reutilizable.</p>
-                </div>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-base-secondary">Asset inspeccionable</span>
-              </div>
-              <div className="mt-5 grid gap-3">
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
-                  <span className="text-dimmed">Propietarios anteriores</span>
-                  <span className="font-semibold text-base-primary">{ownership.previousOwners}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
-                  <span className="text-dimmed">Ultima transferencia</span>
-                  <span className="font-semibold text-base-primary">Hace {ownership.transferDays} dias</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
-                  <span className="text-dimmed">Estado de licencia</span>
-                  <span className="font-semibold text-base-primary">{ownership.licenseLabel}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
-                  <span className="text-dimmed">Verificacion</span>
-                  <span className="font-semibold text-base-primary">{ownership.ownershipLabel}</span>
                 </div>
               </div>
             </div>
@@ -581,6 +679,16 @@ const ProductDetail = () => {
                     </svg>
                     <span className="text-xs font-semibold text-dimmed">PayPal</span>
                   </button>
+                  <button
+                    onClick={() => setTipoPago('sbt')}
+                    className={`flex-1 rounded-xl border py-3 px-3 flex flex-col items-center gap-2 transition hover:scale-[1.02] active:scale-95 ${tipoPago === 'sbt'
+                        ? 'border-amber-400 bg-amber-50 dark:border-amber-400/70 dark:bg-amber-500/10'
+                        : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-amber-300 dark:hover:border-amber-400/40'
+                      }`}
+                  >
+                    <Coins className="h-5 w-5 text-amber-500" />
+                    <span className="text-xs font-semibold text-dimmed">SBT</span>
+                  </button>
                 </div>
 
                 {/* Subtabs de tarjeta solo cuando tipoPago es stripe */}
@@ -631,6 +739,36 @@ const ProductDetail = () => {
                 </div>
               )}
 
+              {/* Info SBT crypto */}
+              {tipoPago === 'sbt' && (
+                <div className="mb-6 rounded-2xl border border-amber-400/30 bg-amber-500/5 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-amber-600 dark:text-amber-300">
+                    <Coins className="h-4 w-4" /> Pago directo con ScriptBay Token (SBT)
+                  </div>
+                  <p className="text-sm text-dimmed leading-relaxed">
+                    Se hará un <span className="font-mono">transfer</span> de tu wallet al marketplace por <span className="font-bold text-amber-600 dark:text-amber-200">{precioSbt} SBT</span> y se minteará tu licencia NFT automáticamente.
+                  </p>
+                  <p className="text-[11px] text-faint">
+                    {product.precio_sbt !== null && product.precio_sbt !== undefined && product.precio_sbt !== ''
+                      ? 'Precio fijado por el vendedor.'
+                      : `Auto-calculado desde ${product.price}€ a la tasa actual del swap (1 ETH ≈ ${EUR_POR_ETH}€).`}
+                  </p>
+                  {isConnected ? (
+                    <p className="text-xs text-faint">
+                      Wallet: {address?.slice(0, 6)}...{address?.slice(-4)} · Balance: {balanceSbt !== null ? `${balanceSbt.toFixed(2)} SBT` : '—'}
+                      {balanceSbt !== null && balanceSbt < (precioSbt || 0) && (
+                        <span className="ml-2 text-red-500 font-semibold">¡Saldo insuficiente!</span>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-red-500 font-semibold">Conecta tu wallet para pagar con SBT.</p>
+                  )}
+                  <Link to="/swap" className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-300 hover:underline">
+                    ¿Sin SBT? Cámbialos aquí →
+                  </Link>
+                </div>
+              )}
+
               {/* Info PayPal sandbox */}
               {tipoPago === 'paypal' && (
                 <div className="mb-6 rounded-2xl border border-blue-400/30 bg-blue-500/5 p-4">
@@ -651,16 +789,29 @@ const ProductDetail = () => {
 
           {estadoPago === 'idle' && (
             <button
-              onClick={tipoPago === 'paypal' ? handleConfirmarPagoPayPal : handleConfirmarPago}
+              onClick={
+                tipoPago === 'paypal'
+                  ? handleConfirmarPagoPayPal
+                  : tipoPago === 'sbt'
+                    ? handleConfirmarPagoSBT
+                    : handleConfirmarPago
+              }
               className={`w-full rounded-2xl border py-3 font-bold transition hover:scale-[1.02] active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 ${tipoPago === 'paypal'
                   ? 'border-blue-400/35 bg-blue-100 dark:bg-blue-600/20 text-blue-700 dark:text-white hover:bg-blue-200 dark:hover:bg-blue-600/35 focus-visible:ring-blue-400/50'
-                  : 'border-violet-400/35 bg-violet-100 dark:bg-violet-600/20 text-violet-700 dark:text-white hover:bg-violet-200 dark:hover:bg-violet-600/35 focus-visible:ring-primary/50'
+                  : tipoPago === 'sbt'
+                    ? 'border-amber-400/35 bg-amber-100 dark:bg-amber-600/20 text-amber-700 dark:text-amber-100 hover:bg-amber-200 dark:hover:bg-amber-600/35 focus-visible:ring-amber-400/50'
+                    : 'border-violet-400/35 bg-violet-100 dark:bg-violet-600/20 text-violet-700 dark:text-white hover:bg-violet-200 dark:hover:bg-violet-600/35 focus-visible:ring-primary/50'
                 }`}
             >
               {tipoPago === 'paypal' ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg width="58" height="16" viewBox="0 0 58 16" fill="none"><text x="0" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#003087">Pay</text><text x="20" y="12" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="#009CDE">Pal</text></svg>
                   Pagar
+                </span>
+              ) : tipoPago === 'sbt' ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Coins className="h-4 w-4" />
+                  Pagar {precioSbt} SBT
                 </span>
               ) : 'Confirmar Pago'}
             </button>

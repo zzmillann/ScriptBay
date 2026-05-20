@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3, Gavel, Bell, ShoppingBag, Star, Info, Package, Trash2 } from 'lucide-react';
+import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3, Gavel, Bell, ShoppingBag, Star, Info, Package, Trash2, Hexagon, Coins } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clearSession, getSession, postAuth } from '../services/authClient';
@@ -223,6 +223,24 @@ const Navbar = () => {
                                     >
                                         <Gavel className="w-3.5 h-3.5" />
                                         Subastas
+                                    </Link>
+
+                                    {/* Galería NFT */}
+                                    <Link
+                                        to="/galeria-nft"
+                                        className="hidden lg:inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-xl border border-zinc-200/60 dark:border-zinc-700/50 bg-transparent dark:bg-transparent text-zinc-500 dark:text-zinc-400 transition-all duration-200 hover:border-violet-400/40 hover:text-violet-500 dark:hover:text-violet-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+                                    >
+                                        <Hexagon className="w-3.5 h-3.5" />
+                                        Galería NFT
+                                    </Link>
+
+                                    {/* Swap SBT */}
+                                    <Link
+                                        to="/swap"
+                                        className="hidden lg:inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-xl border border-zinc-200/60 dark:border-zinc-700/50 bg-transparent dark:bg-transparent text-zinc-500 dark:text-zinc-400 transition-all duration-200 hover:border-amber-400/40 hover:text-amber-500 dark:hover:text-amber-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+                                    >
+                                        <Coins className="w-3.5 h-3.5" />
+                                        Swap SBT
                                     </Link>
 
                                     {/* Publicar producto — menos dominante */}

@@ -18,11 +18,15 @@ import SubastaDetalle from './pages/SubastaDetalle';
 import CrearSubasta from './pages/CrearSubasta';
 import Notificaciones from './pages/Notificaciones';
 import MisCompras from './pages/MisCompras';
+import GaleriaNFT from './pages/GaleriaNFT';
+import SwapSBT from './pages/SwapSBT';
 import ParticlesBackground from './components/ParticlesBackground';
 import { WishlistProvider } from './context/WishlistContext';
 import ChatAssistant from './components/ChatAssistant';
 import OnboardingTour from './components/OnboardingTour';
-import { getSession } from './services/authClient';
+import Preloader from './components/Preloader';
+import BackendBootSync from './components/BackendBootSync';
+import { getValidSession, clearSession } from './services/authClient';
 import { MyWagmiProvider } from './components/BlockchainFront/WagmiProvider';
 
 import './index.css';
@@ -33,12 +37,19 @@ const PageShell = () => {
   const [mostrarTour, setMostrarTour] = React.useState(false);
 
   useEffect(() => {
-    const session = getSession();
     const publicPaths = ['/login', '/register'];
-    
-    if (!session && !publicPaths.includes(location.pathname)) {
-      navigate('/login');
-    }
+    if (publicPaths.includes(location.pathname)) return;
+
+    let cancelado = false;
+    (async () => {
+      const session = await getValidSession();
+      if (cancelado) return;
+      if (!session) {
+        clearSession();
+        navigate('/login');
+      }
+    })();
+    return () => { cancelado = true; };
   }, [location.pathname, navigate]);
 
   useEffect(() => {
@@ -88,6 +99,8 @@ const PageShell = () => {
                   <Route path="/subastas/:id" element={<SubastaDetalle />} />
                   <Route path="/notificaciones" element={<Notificaciones />} />
                   <Route path="/mis-compras" element={<MisCompras />} />
+                  <Route path="/galeria-nft" element={<GaleriaNFT />} />
+                  <Route path="/swap" element={<SwapSBT />} />
                 </Routes>
               </motion.div>
             </AnimatePresence>
@@ -128,6 +141,8 @@ function App() {
     <Router>
       <MyWagmiProvider>
         <WishlistProvider>
+          <Preloader />
+          <BackendBootSync />
           <PageShell />
         </WishlistProvider>
       </MyWagmiProvider>

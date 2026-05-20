@@ -3,7 +3,7 @@ import { getSession, refreshSession } from './authClient';
 const API_BASE_URL = 'http://localhost:3000/api/productos';
 
 // Llama al backend para crear la orden de PayPal y obtener la URL de aprobacion
-export async function postIniciarPagoPayPal(idProducto, titulo, precio) {
+export async function postIniciarPagoPayPal(idProducto, titulo, precio, wallet) {
     let session = getSession();
     let accessToken = session?.accessToken;
 
@@ -13,7 +13,7 @@ export async function postIniciarPagoPayPal(idProducto, titulo, precio) {
             'Content-Type': 'application/json',
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
         },
-        body: JSON.stringify({ idProducto, titulo, precio })
+        body: JSON.stringify({ idProducto, titulo, precio, wallet })
     });
 
     const data = await response.json();
@@ -29,7 +29,7 @@ export async function postIniciarPagoPayPal(idProducto, titulo, precio) {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${sesionRenovada.accessToken}`
             },
-            body: JSON.stringify({ idProducto, titulo, precio })
+            body: JSON.stringify({ idProducto, titulo, precio, wallet })
         });
 
         return await response2.json();

@@ -197,7 +197,10 @@ const MisCompras = () => {
                                     date: compra.created_at,
                                     type: compra.productos?.tipo || 'producto',
                                     status: 'completed',
-                                    image: normalizeImageUrl(compra.productos?.imagen || '')
+                                    image: normalizeImageUrl(compra.productos?.imagen || ''),
+                                    txHash: compra.blockchain_hash || null,
+                                    metodoPago: compra.metodo_pago,
+                                    idTransaccion: compra.id_transaccion
                                 }
                             };
 

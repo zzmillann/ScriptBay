@@ -232,22 +232,26 @@ const modeBuilders = {
   asset: buildLibraryExperience
 };
 
+const formatMintDate = (value) => {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+};
+
 export const buildPurchaseExperience = (purchase = {}) => {
   const seed = Number(purchase.productId || purchase.id || 1);
   const amount = parseNumericPrice(purchase.price || purchase.precio || 0);
   const mode = inferPurchaseMode(purchase);
   const wallet = walletPool[seed % walletPool.length];
-  const txHash = buildTxHash(seed + 7);
-  const network = networkPool[seed % networkPool.length];
+  const realTxHash = purchase.txHash || purchase.blockchain_hash || purchase.blockchainHash || null;
+  const txHash = realTxHash || buildTxHash(seed + 7);
+  const network = 'Sepolia';
   const owners = (seed % 4) + 1;
   const previousOwners = Math.max(owners - 1, 0);
   const transferDays = (seed % 15) + 3;
-  const mintDate = purchase.date || new Date().toISOString().slice(0, 10);
-  const explorerBase = network === 'Base'
-    ? 'https://basescan.org/tx/'
-    : network === 'Polygon'
-      ? 'https://polygonscan.com/tx/'
-      : 'https://etherscan.io/tx/';
+  const mintDate = purchase.date || null;
+  const explorerBase = 'https://sepolia.etherscan.io/tx/';
   const builder = modeBuilders[mode] || buildLibraryExperience;
   const archetypeData = builder(seed, purchase.title || 'asset');
 
@@ -261,10 +265,12 @@ export const buildPurchaseExperience = (purchase = {}) => {
     txHash,
     txHashShort: shortenHash(txHash, 5),
     network,
-    mintedAt: mintDate,
+    mintedAt: formatMintDate(mintDate),
+    hasMintDate: Boolean(mintDate),
     previousOwners,
     transferDays,
     explorerUrl: `${explorerBase}${txHash}`,
+    hasRealTx: Boolean(realTxHash),
     ownershipLabel: owners > 1 ? 'Ownership confirmado' : 'Ownership inicial',
     licenseLabel: 'Licencia activa',
     verifiabilityLabel: 'Asset verificable',
