@@ -295,21 +295,21 @@ objetoRouter.post('/EliminarCuenta', async (req, res, next) => {
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError) throw authError;
 
+        await supabase.from('subastas').update({ ganador_id: null, puja_ganadora: null }).eq('ganador_id', user.id);
         await supabase.from('notificaciones').delete().eq('user_id', user.id);
         await supabase.from('compras').delete().eq('user_id', user.id);
         await supabase.from('productos').delete().eq('user_id', user.id);
         await supabase.from('perfiles').delete().eq('id', user.id);
 
+        const supabaseUrl = process.env.PROJECT_URL || process.env.SUPABASE_URL;
         const serviceRoleKey = process.env.SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY;
-        if (serviceRoleKey) {
-            const adminSupabase = createClient(process.env.PROJECT_URL, serviceRoleKey, {
-                auth: { persistSession: false, autoRefreshToken: false }
-            });
-            await adminSupabase.auth.admin.deleteUser(user.id);
-            console.log('[EliminarCuenta] Usuario eliminado completamente de auth:', user.id);
-        } else {
-            console.log('[EliminarCuenta] Sin SERVICE_ROLE - datos eliminados, registro auth pendiente:', user.id);
-        }
+        const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+            auth: { persistSession: false, autoRefreshToken: false }
+        });
+        const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(user.id);
+        if (authDeleteError) throw authDeleteError;
+
+        console.log('[EliminarCuenta] Usuario eliminado completamente de auth:', user.id);
 
         res.status(200).send({ codigo: 0, mensaje: 'Cuenta eliminada correctamente' });
 

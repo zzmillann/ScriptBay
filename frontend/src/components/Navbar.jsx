@@ -13,6 +13,8 @@ const Navbar = () => {
     const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
     const [isProfilePreviewOpen, setIsProfilePreviewOpen] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
     const [session, setSession] = useState(getSession());
     const [notifCount, setNotifCount] = useState(0);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -129,10 +131,12 @@ const Navbar = () => {
 
     const handleEliminarCuenta = async () => {
         try {
+            setIsDeleting(true);
+            setDeleteError('');
             const session = getSession();
             const token = session?.accessToken;
-            if (!token) return;
-            const res = await fetch('http://localhost:3000/api/cliente/EliminarCuenta', {
+            if (!token) throw new Error('No hay sesión activa');
+            const res = await fetch('http://localhost:3000/api/Cliente/EliminarCuenta', {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -141,10 +145,14 @@ const Navbar = () => {
             setIsAvatarMenuOpen(false);
             setShowDeleteConfirm(false);
             clearSession();
-            navigate('/');
+            localStorage.removeItem('scriptbay_tour_done');
+            localStorage.removeItem('scriptbay_just_registered');
+            navigate('/login');
         } catch (error) {
             console.error('[EliminarCuenta] error:', error);
-            setShowDeleteConfirm(false);
+            setDeleteError(error.message || 'Error al eliminar la cuenta');
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -453,18 +461,23 @@ const Navbar = () => {
                                                     ) : (
                                                         <div className="rounded-xl border border-red-300 dark:border-red-800/60 bg-red-50 dark:bg-red-950/40 px-3 py-2.5">
                                                             <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-2">¿Eliminar cuenta permanentemente?</p>
+                                                            {deleteError && (
+                                                                <p className="text-xs text-red-500 mb-2 break-words">{deleteError}</p>
+                                                            )}
                                                             <div className="flex gap-2">
                                                                 <button
                                                                     type="button"
                                                                     onClick={handleEliminarCuenta}
-                                                                    className="flex-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1.5 transition"
+                                                                    disabled={isDeleting}
+                                                                    className="flex-1 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-xs font-bold py-1.5 transition"
                                                                 >
-                                                                    Confirmar
+                                                                    {isDeleting ? 'Eliminando...' : 'Confirmar'}
                                                                 </button>
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setShowDeleteConfirm(false)}
-                                                                    className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-bold py-1.5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                                                                    onClick={() => { setShowDeleteConfirm(false); setDeleteError(''); }}
+                                                                    disabled={isDeleting}
+                                                                    className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-bold py-1.5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-60 transition"
                                                                 >
                                                                     Cancelar
                                                                 </button>

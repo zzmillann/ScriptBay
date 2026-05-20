@@ -31,7 +31,8 @@ const Login = () => {
                 datosCliente: data.datosCliente
             });
 
-            if (!data.datosCliente?.onboarding_completado) {
+            if (localStorage.getItem('scriptbay_just_registered') && !localStorage.getItem('scriptbay_tour_done')) {
+                localStorage.removeItem('scriptbay_just_registered');
                 window.dispatchEvent(new Event('scriptbay-show-tour'));
             }
 

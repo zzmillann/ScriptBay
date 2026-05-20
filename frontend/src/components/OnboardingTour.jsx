@@ -85,6 +85,7 @@ const OnboardingTour = ({ onFin }) => {
             const s = JSON.parse(raw);
             s.datosCliente = { ...s.datosCliente, onboarding_completado: true };
             localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+            localStorage.setItem('scriptbay_tour_done', '1');
         } catch (_) {}
     };
 
