@@ -13,6 +13,8 @@ const Navbar = () => {
     const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
     const [isProfilePreviewOpen, setIsProfilePreviewOpen] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
     const [session, setSession] = useState(getSession());
     const [notifCount, setNotifCount] = useState(0);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -129,10 +131,12 @@ const Navbar = () => {
 
     const handleEliminarCuenta = async () => {
         try {
+            setIsDeleting(true);
+            setDeleteError('');
             const session = getSession();
             const token = session?.accessToken;
-            if (!token) return;
-            const res = await fetch('http://localhost:3000/api/cliente/EliminarCuenta', {
+            if (!token) throw new Error('No hay sesión activa');
+            const res = await fetch('http://localhost:3000/api/Cliente/EliminarCuenta', {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -141,10 +145,14 @@ const Navbar = () => {
             setIsAvatarMenuOpen(false);
             setShowDeleteConfirm(false);
             clearSession();
-            navigate('/');
+            localStorage.removeItem('scriptbay_tour_done');
+            localStorage.removeItem('scriptbay_just_registered');
+            navigate('/login');
         } catch (error) {
             console.error('[EliminarCuenta] error:', error);
-            setShowDeleteConfirm(false);
+            setDeleteError(error.message || 'Error al eliminar la cuenta');
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -155,7 +163,7 @@ const Navbar = () => {
                     <div className="max-w-7xl mx-auto px-5 lg:px-8 h-16 flex items-center gap-5">
 
                         {/* IZQUIERDA: Logo */}
-                        <Link to="/" className="shrink-0 flex items-center">
+                        <Link to="/" data-tour="tour-productos" className="shrink-0 flex items-center">
                             <span className="text-xl lg:text-2xl font-bold tracking-tight leading-none">
                                 Script<span className="gradient-text">Bay</span>
                             </span>
@@ -210,6 +218,7 @@ const Navbar = () => {
                                     {/* Subastas */}
                                     <Link
                                         to="/subastas"
+                                        data-tour="tour-subastas"
                                         className="hidden md:inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-xl border border-zinc-200/60 dark:border-zinc-700/50 bg-transparent dark:bg-transparent text-zinc-500 dark:text-zinc-400 transition-all duration-200 hover:border-primary/30 hover:text-primary hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
                                     >
                                         <Gavel className="w-3.5 h-3.5" />
@@ -219,6 +228,7 @@ const Navbar = () => {
                                     {/* Publicar producto — menos dominante */}
                                     <Link
                                         to="/create-product"
+                                        data-tour="tour-publicar"
                                         className="hidden md:inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-xl border border-zinc-200/60 dark:border-zinc-700/50 bg-transparent dark:bg-transparent text-zinc-500 dark:text-zinc-400 transition-all duration-200 hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
                                     >
                                         <Plus className="w-3.5 h-3.5" />
@@ -228,6 +238,7 @@ const Navbar = () => {
                                     {/* Favoritos */}
                                     <Link
                                         to="/wishlist"
+                                        data-tour="tour-wishlist"
                                         className="icon-control relative flex items-center justify-center w-9 h-9"
                                         aria-label="Mis favoritos"
                                     >
@@ -243,6 +254,7 @@ const Navbar = () => {
                                     <div className="relative" ref={notifRef}>
                                         <button
                                             type="button"
+                                            data-tour="tour-notificaciones"
                                             onClick={() => {
                                                 setIsNotifOpen((prev) => {
                                                     if (!prev) cargarDropdown();
@@ -333,6 +345,7 @@ const Navbar = () => {
                                     {/* Mis Compras */}
                                     <Link
                                         to="/mis-compras"
+                                        data-tour="tour-compras"
                                         className="icon-control relative flex items-center justify-center w-9 h-9"
                                         aria-label="Mis compras"
                                     >
@@ -343,6 +356,7 @@ const Navbar = () => {
                                     <div className="relative" ref={avatarMenuRef}>
                                         <button
                                             type="button"
+                                            data-tour="tour-dashboard"
                                             onClick={() => setIsAvatarMenuOpen((prev) => !prev)}
                                             className="w-9 h-9 rounded-full border border-zinc-300/70 dark:border-zinc-700/70 overflow-hidden flex items-center justify-center bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-semibold text-sm transition-all duration-200 hover:border-zinc-400 dark:hover:border-zinc-500 hover:shadow-[0_0_0_2px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_0_0_2px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                                             aria-label="Abrir menú de usuario"
@@ -447,18 +461,23 @@ const Navbar = () => {
                                                     ) : (
                                                         <div className="rounded-xl border border-red-300 dark:border-red-800/60 bg-red-50 dark:bg-red-950/40 px-3 py-2.5">
                                                             <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-2">¿Eliminar cuenta permanentemente?</p>
+                                                            {deleteError && (
+                                                                <p className="text-xs text-red-500 mb-2 break-words">{deleteError}</p>
+                                                            )}
                                                             <div className="flex gap-2">
                                                                 <button
                                                                     type="button"
                                                                     onClick={handleEliminarCuenta}
-                                                                    className="flex-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1.5 transition"
+                                                                    disabled={isDeleting}
+                                                                    className="flex-1 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-xs font-bold py-1.5 transition"
                                                                 >
-                                                                    Confirmar
+                                                                    {isDeleting ? 'Eliminando...' : 'Confirmar'}
                                                                 </button>
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setShowDeleteConfirm(false)}
-                                                                    className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-bold py-1.5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                                                                    onClick={() => { setShowDeleteConfirm(false); setDeleteError(''); }}
+                                                                    disabled={isDeleting}
+                                                                    className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-bold py-1.5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-60 transition"
                                                                 >
                                                                     Cancelar
                                                                 </button>

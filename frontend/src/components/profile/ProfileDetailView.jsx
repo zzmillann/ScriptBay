@@ -26,13 +26,13 @@ const ProfileDetailView = ({
 }) => {
     const normalizedPurchases = (misCompras || []).map((compra, index) => ({
         id: compra.id || `compra-${index}`,
-        productId: compra.productId || compra.product_id || compra.idProducto || compra.id_producto || compra.producto_id || compra.id_producto_comprado,
+        productId: compra.producto_id || compra.productId || compra.product_id || compra.idProducto || compra.id_producto || compra.id_producto_comprado,
         title: compra.titulo || 'Compra sin titulo',
         price: compra.precio ? `${compra.precio} EUR` : (compra.metodo_pago || 'Sin precio'),
         date: compra.created_at || new Date().toISOString().slice(0, 10),
         status: String(compra.estado || '').toLowerCase().includes('pend') ? 'Pendiente' : 'Completado',
-        type: compra.tipo || compra.type || compra.categoria || 'producto',
-        image: compra.imagen || `https://via.placeholder.com/300x180/171717/ffffff?text=Compra+${index + 1}`
+        type: compra.productos?.tipo || compra.productos?.categoria || compra.tipo || compra.type || 'producto',
+        image: compra.productos?.imagen ? normalizeImageUrl(compra.productos.imagen) : `https://via.placeholder.com/300x180/171717/ffffff?text=Compra+${index + 1}`
     }));
     const purchasesToRender = normalizedPurchases.length ? normalizedPurchases : mockPurchases;
 
@@ -162,7 +162,7 @@ const ProfileDetailView = ({
                 </div>
             )}
 
-            {activeSection === 'compras' && activeView === 'compras' && (
+            {activeView === 'compras' && (
                 <div>
                     <div className="mb-5 flex items-center justify-between gap-3">
                         <h2 className="text-xl font-bold flex items-center gap-2">

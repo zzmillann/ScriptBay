@@ -27,6 +27,7 @@ const Register = () => {
             }
 
             console.log('[AUTH TRACE] registro correcto para:', email);
+            localStorage.setItem('scriptbay_just_registered', '1');
             setMensaje(`${data.mensaje}. Ahora puedes iniciar sesión.`);
             setNombre('');
             setEmail('');

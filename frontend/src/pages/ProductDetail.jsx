@@ -183,11 +183,6 @@ const ProductDetail = () => {
   };
 
   const handleConfirmarPago = async () => {
-    if (!address) {
-      setEstadoPago('error');
-      setMensajePago('¡Espera! Conecta tu wallet arriba a la derecha para que podamos enviarte la licencia NFT tras el pago.');
-      return;
-    }
     setEstadoPago('cargando');
     console.log("[ScriptBay] Iniciando pago - Producto:", product.title, "| Precio:", product.price, "EUR");
     const resultado = await postPagarProducto(product.title, product.price, metodoPago, product.id, address);

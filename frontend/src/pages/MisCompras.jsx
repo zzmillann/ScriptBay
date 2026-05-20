@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { getValidSession } from '../services/authClient';
 import { useAccount, usePublicClient } from 'wagmi';
 import { ShieldCheck, Loader2 } from 'lucide-react';
+import { normalizeImageUrl } from '../utils/imageUrl';
 
 const CONTRACT_ADDRESS = '0x4ACBc139Cba05b41fBB7e760fD696D2A0FC8A0cC';
 
@@ -185,6 +186,20 @@ const MisCompras = () => {
                             const imagen = compra.productos?.imagen || null;
                             const productoId = compra.producto_id || null;
                             const badge = badgeMetodo(compra.metodo_pago);
+                            const purchaseState = {
+                                from: '/mis-compras',
+                                fromLabel: 'Volver a mis compras',
+                                purchase: {
+                                    id: compra.id,
+                                    productId: productoId,
+                                    title: compra.titulo,
+                                    price: compra.precio,
+                                    date: compra.created_at,
+                                    type: compra.productos?.tipo || 'producto',
+                                    status: 'completed',
+                                    image: normalizeImageUrl(compra.productos?.imagen || '')
+                                }
+                            };
 
                             return (
                                 <motion.div
@@ -197,7 +212,7 @@ const MisCompras = () => {
                                     <div className="w-16 h-16 rounded-xl bg-zinc-100 dark:bg-zinc-800 shrink-0 overflow-hidden flex items-center justify-center">
                                         {imagen ? (
                                             <img
-                                                src={imagen}
+                                                src={normalizeImageUrl(imagen)}
                                                 alt={compra.titulo}
                                                 className="w-full h-full object-cover"
                                             />
@@ -227,6 +242,7 @@ const MisCompras = () => {
                                         {productoId && (
                                             <Link
                                                 to={`/mis-compras/${productoId}/acceso`}
+                                                state={purchaseState}
                                                 className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl bg-primary text-white hover:bg-primary/90 transition-colors duration-150"
                                             >
                                                 Acceder

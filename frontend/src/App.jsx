@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import Navbar from './components/Navbar';
@@ -21,6 +21,7 @@ import MisCompras from './pages/MisCompras';
 import ParticlesBackground from './components/ParticlesBackground';
 import { WishlistProvider } from './context/WishlistContext';
 import ChatAssistant from './components/ChatAssistant';
+import OnboardingTour from './components/OnboardingTour';
 import { getSession } from './services/authClient';
 import { MyWagmiProvider } from './components/BlockchainFront/WagmiProvider';
 
@@ -29,6 +30,7 @@ import './index.css';
 const PageShell = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [mostrarTour, setMostrarTour] = React.useState(false);
 
   useEffect(() => {
     const session = getSession();
@@ -38,6 +40,12 @@ const PageShell = () => {
       navigate('/login');
     }
   }, [location.pathname, navigate]);
+
+  useEffect(() => {
+    const mostrar = () => setMostrarTour(true);
+    window.addEventListener('scriptbay-show-tour', mostrar);
+    return () => window.removeEventListener('scriptbay-show-tour', mostrar);
+  }, []);
 
   return (
     <div className="relative min-h-screen flex flex-col overflow-hidden">
@@ -106,6 +114,10 @@ const PageShell = () => {
           <ThemeToggle />
           <ChatAssistant />
         </div>
+
+        {mostrarTour && (
+          <OnboardingTour onFin={() => setMostrarTour(false)} />
+        )}
       </div>
     </div>
   );

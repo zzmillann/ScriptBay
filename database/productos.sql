@@ -73,3 +73,7 @@ CREATE INDEX IF NOT EXISTS idx_notificaciones_user_id ON notificaciones(user_id)
 CREATE INDEX IF NOT EXISTS idx_notificaciones_leida ON notificaciones(leida);
 CREATE INDEX IF NOT EXISTS idx_subastas_fecha_fin ON subastas(fecha_fin);
 CREATE INDEX IF NOT EXISTS idx_pujas_subasta ON pujas(subasta_id, created_at DESC);
+
+ALTER TABLE perfiles ADD COLUMN IF NOT EXISTS creditos integer NOT NULL DEFAULT 0;
+ALTER TABLE perfiles ADD COLUMN IF NOT EXISTS logros jsonb NOT NULL DEFAULT '[]';
+ALTER TABLE perfiles ADD COLUMN IF NOT EXISTS onboarding_completado boolean NOT NULL DEFAULT false;
