@@ -123,15 +123,19 @@ export default {
             const hora = fechaActual.getHours();
 
 
-            const compraBlockchain = await registroCompraStripe(
-                usuarioDestino, // <-- PASAMOS LA WALLET A LA BLOCKCHAIN
-                idCustomer, idCard, importe, 'eur', descripcion, true,
-                true, 'card', true, fecha, hora, datosPaymentIntent.id
-            );
+            let compraBlockchain = null;
+            if (usuarioDestino) {
+                compraBlockchain = await registroCompraStripe(
+                    usuarioDestino, // <-- PASAMOS LA WALLET A LA BLOCKCHAIN
+                    idCustomer, idCard, importe, 'eur', descripcion, true,
+                    true, 'card', true, fecha, hora, datosPaymentIntent.id
+                );
+                console.log("Compra Blockchain: ", compraBlockchain);
+            } else {
+                console.log("Sin wallet conectada - pago sin minteo de NFT");
+            }
 
-            console.log("Compra Blockchain: ", compraBlockchain);
-
-            return { idPaymentIntent: datosPaymentIntent.id, compraBlockchain: compraBlockchain.tx, tokenId: compraBlockchain.tokenId };
+            return { idPaymentIntent: datosPaymentIntent.id, compraBlockchain: compraBlockchain?.tx || null, tokenId: compraBlockchain?.tokenId || null };
 
 
 
