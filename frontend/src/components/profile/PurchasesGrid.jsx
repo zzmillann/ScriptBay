@@ -236,6 +236,7 @@ const PurchasesGrid = ({ purchases = mockPurchases }) => {
                   alt={purchase.title}
                   className="h-full w-full object-cover transition-all duration-500 group-hover:scale-[1.04] group-hover:brightness-110"
                   loading="lazy"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent opacity-70 transition-opacity duration-300 group-hover:opacity-85" />
                 {/* Tag tipo — glassmorphism mejorado */}

@@ -357,6 +357,9 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
 
         const { titulo, precio, metodoPago, idProducto, wallet } = req.body;
 
+        const isValidUUID = (id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id || ''));
+        const productoIdFinal = isValidUUID(idProducto) ? idProducto : null;
+
         console.log("Producto a comprar:", titulo, "| Precio:", precio, "EUR", "| Metodo de pago:", metodoPago || 'visa');
 
         const { data: perfil } = await supabase
@@ -403,29 +406,30 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
         console.log("=== PAGO COMPLETADO ===");
         console.log("Resumen - Cliente:", user.email, "| Producto:", titulo, "| Importe:", precio, "EUR | PaymentIntent:", idPaymentIntent);
 
-        await supabase.from('compras').insert({
+        const { error: insertError } = await supabase.from('compras').insert({
             user_id: user.id,
-            producto_id: idProducto || null,
+            producto_id: productoIdFinal,
             titulo,
             precio,
             metodo_pago: 'Stripe',
             id_transaccion: idPaymentIntent,
             blockchain_hash: compraBlockchain || null
         });
+        if (insertError) console.log('[PagarProducto] Error guardando compra:', insertError.message);
         console.log('Compra Stripe guardada en BD para el historial del usuario');
 
-        if (idProducto) {
+        if (productoIdFinal) {
             const { data: productoVendedor } = await supabase
                 .from('productos')
                 .select('user_id')
-                .eq('id', idProducto)
+                .eq('id', productoIdFinal)
                 .single();
             if (productoVendedor?.user_id && productoVendedor.user_id !== user.id) {
                 await crearNotificacion(productoVendedor.user_id, 'compra', {
                     titulo,
                     precio,
                     compradorId: user.id,
-                    productoId: idProducto,
+                    productoId: productoIdFinal,
                     metodo: 'Stripe'
                 });
             }
@@ -619,15 +623,40 @@ objetoRouter.get('/MisCompras', async (req, res, next) => {
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError) throw authError;
 
-        const { data: compras, error } = await supabase
+        let compras = [];
+        const { data: comprasJoin, error: joinError } = await supabase
             .from('compras')
             .select('*, productos(id, imagen, tipo, categoria)')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (!joinError) {
+            compras = comprasJoin || [];
+        } else {
+            console.log('[MisCompras] Join con productos fallido, cargando sin join:', joinError.message);
+            const { data: comprasSolas, error: solasError } = await supabase
+                .from('compras')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+            if (solasError) throw solasError;
 
-        res.status(200).send({ codigo: 0, compras: compras || [] });
+            const ids = (comprasSolas || []).map(c => c.producto_id).filter(Boolean);
+            let productosMap = {};
+            if (ids.length > 0) {
+                const { data: prods } = await supabase
+                    .from('productos')
+                    .select('id, imagen, tipo, categoria')
+                    .in('id', ids);
+                (prods || []).forEach(p => { productosMap[p.id] = p; });
+            }
+            compras = (comprasSolas || []).map(c => ({
+                ...c,
+                productos: productosMap[c.producto_id] || null
+            }));
+        }
+
+        res.status(200).send({ codigo: 0, compras });
 
     } catch (error) {
         console.log('ERROR en /MisCompras:', error);
