@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import ProductCard from '../components/ProductCard';
 import RecomendadosParaTi from '../components/RecomendadosParaTi';
 import { products as localProducts } from '../data/products';
 import { SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
 import { normalizeImageUrl } from '../utils/imageUrl';
-
-const tags = ['Todos', 'Scripts', 'Diseño', 'Plugins', 'Servicios', 'Backend'];
 
 const normalizeProduct = (product) => ({
     id: product.id,
@@ -17,29 +16,12 @@ const normalizeProduct = (product) => ({
     reviews: Number(product.reviews ?? 0),
     image: normalizeImageUrl(product.imagen || product.image || ''),
     rawType: (product.tipo || '').toString().toLowerCase(),
+    description: (product.descripcion || product.description || '').toString(),
 });
 
 const matchesTag = (product, selectedTag) => {
     if (selectedTag === 'Todos') return true;
-
-    const title = product.title.toLowerCase();
-    const category = product.category.toLowerCase();
-
-    if (selectedTag === 'Diseño') return category.includes('dise') || title.includes('dise');
-    if (selectedTag === 'Backend') return category.includes('backend') || title.includes('api') || title.includes('servidor');
-    if (selectedTag === 'Plugins') return title.includes('plugin') || category.includes('plugin');
-    if (selectedTag === 'Servicios') return product.rawType.includes('servicio') || title.includes('servicio') || category.includes('servicio');
-    if (selectedTag === 'Scripts') {
-        return !(
-            title.includes('plugin') ||
-            category.includes('plugin') ||
-            product.rawType.includes('servicio') ||
-            title.includes('servicio') ||
-            category.includes('servicio')
-        );
-    }
-
-    return true;
+    return product.category.toLowerCase() === selectedTag.toLowerCase();
 };
 
 const Home = () => {
@@ -53,6 +35,10 @@ const Home = () => {
     const titleX = useTransform(smoothX, [-400, 400], [-30, 30]);
     const titleY = useTransform(smoothY, [-400, 400], [-15, 15]);
 
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const termino = (searchParams.get('q') || '').trim().toLowerCase();
+
     const [productos, setProductos] = useState(localProducts);
     const [cargaFallback, setCargaFallback] = useState(false);
     const [tagSeleccionado, setTagSeleccionado] = useState('Todos');
@@ -63,8 +49,24 @@ const Home = () => {
 
     const productosNormalizados = useMemo(() => productos.map(normalizeProduct), [productos]);
 
+    const tags = useMemo(() => {
+        const categorias = new Set();
+        productosNormalizados.forEach((p) => {
+            if (p.category) categorias.add(p.category.trim());
+        });
+        return ['Todos', ...Array.from(categorias).sort((a, b) => a.localeCompare(b))];
+    }, [productosNormalizados]);
+
     const productosFiltrados = useMemo(() => {
-        const filtrados = productosNormalizados.filter((product) => matchesTag(product, tagSeleccionado));
+        let filtrados = productosNormalizados.filter((product) => matchesTag(product, tagSeleccionado));
+
+        if (termino) {
+            filtrados = filtrados.filter((product) =>
+                product.title.toLowerCase().includes(termino) ||
+                product.category.toLowerCase().includes(termino) ||
+                product.description.toLowerCase().includes(termino)
+            );
+        }
 
         if (ordenSeleccionado === 'precio-asc') {
             return [...filtrados].sort((a, b) => a.price - b.price);
@@ -80,7 +82,7 @@ const Home = () => {
 
         // Default: se mantiene el orden recibido desde backend (más recientes primero).
         return filtrados;
-    }, [productosNormalizados, tagSeleccionado, ordenSeleccionado]);
+    }, [productosNormalizados, tagSeleccionado, ordenSeleccionado, termino]);
 
     const totalPaginas = Math.max(1, Math.ceil(productosFiltrados.length / PRODUCTOS_POR_PAGINA));
     const productosPagina = productosFiltrados.slice((paginaActual - 1) * PRODUCTOS_POR_PAGINA, paginaActual * PRODUCTOS_POR_PAGINA);
@@ -122,7 +124,7 @@ const Home = () => {
 
     useEffect(() => {
         setPaginaActual(1);
-    }, [tagSeleccionado, ordenSeleccionado]);
+    }, [tagSeleccionado, ordenSeleccionado, termino]);
 
     const HandlerClickAnterior = () => {
         if (paginaActual > 1) setPaginaActual(paginaActual - 1);
@@ -177,6 +179,21 @@ const Home = () => {
             </section>
 
             <RecomendadosParaTi />
+
+            {termino && (
+                <div className="mb-6 flex flex-wrap items-center gap-3 glass-card px-4 py-3">
+                    <p className="text-sm text-base-primary">
+                        Resultados para <span className="font-semibold text-primary">"{termino}"</span>
+                        <span className="text-dimmed"> · {productosFiltrados.length} encontrado(s)</span>
+                    </p>
+                    <button
+                        onClick={() => navigate('/')}
+                        className="ml-auto text-xs font-semibold text-dimmed hover:text-primary transition-colors"
+                    >
+                        Limpiar búsqueda
+                    </button>
+                </div>
+            )}
 
             <div className="flex flex-wrap gap-2 mb-8">
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full scrollbar-hide">
@@ -234,7 +251,11 @@ const Home = () => {
             </div>
 
             {productosFiltrados.length === 0 && (
-                <p className="mt-8 text-center text-dimmed">No hay productos para ese filtro.</p>
+                <p className="mt-8 text-center text-dimmed">
+                    {termino
+                        ? `No encontramos productos para "${termino}".`
+                        : 'No hay productos para ese filtro.'}
+                </p>
             )}
 
             {cargaFallback && (

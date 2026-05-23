@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Search, ShoppingCart, Menu, X, LogOut, User, LayoutDashboard, Plus, Pencil, Heart, BarChart3, Gavel, Bell, ShoppingBag, Star, Info, Package, Trash2, Hexagon, Coins } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clearSession, getSession, postAuth } from '../services/authClient';
 import ProfilePreviewModal from './ProfilePreviewModal';
@@ -22,6 +22,25 @@ const Navbar = () => {
     const avatarMenuRef = useRef(null);
     const notifRef = useRef(null);
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const [query, setQuery] = useState(searchParams.get('q') || '');
+
+    const irABusqueda = (valor, { replace = true } = {}) => {
+        const limpio = valor.trim();
+        navigate(limpio ? `/?q=${encodeURIComponent(limpio)}` : '/', { replace });
+    };
+
+    const handleSearchChange = (e) => {
+        const valor = e.target.value;
+        setQuery(valor);
+        irABusqueda(valor);
+    };
+
+    const handleSearchSubmit = (e) => {
+        e.preventDefault();
+        irABusqueda(query, { replace: false });
+        setIsMenuOpen(false);
+    };
 
     const userData = session?.datosCliente || {};
     const username = userData.username || userData.nombre || userData.email?.split('@')[0] || 'Usuario';
@@ -170,14 +189,17 @@ const Navbar = () => {
                         </Link>
 
                         {/* CENTRO: Búsqueda */}
-                        <div className="hidden md:block flex-1 min-w-0 relative">
+                        <form onSubmit={handleSearchSubmit} role="search" className="hidden md:block flex-1 min-w-0 relative">
                             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint pointer-events-none" />
                             <input
                                 type="text"
+                                value={query}
+                                onChange={handleSearchChange}
                                 placeholder="Buscar servicios, scripts, plugins..."
+                                aria-label="Buscar en el marketplace"
                                 className="input-field pl-10 h-10 text-sm"
                             />
-                        </div>
+                        </form>
 
                         {/* DERECHA: acciones + avatar */}
                         <div className="flex items-center gap-2 lg:gap-3 ml-auto">
@@ -524,14 +546,17 @@ const Navbar = () => {
                     {/* Menú móvil */}
                     {isMenuOpen && (
                         <div className="md:hidden px-5 pb-5 pt-3 border-t border-zinc-200/60 dark:border-zinc-800/60">
-                            <div className="relative mb-3">
+                            <form onSubmit={handleSearchSubmit} role="search" className="relative mb-3">
                                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint pointer-events-none" />
                                 <input
                                     type="text"
+                                    value={query}
+                                    onChange={handleSearchChange}
                                     placeholder="Buscar..."
+                                    aria-label="Buscar en el marketplace"
                                     className="input-field pl-10 h-10 text-sm"
                                 />
-                            </div>
+                            </form>
                             <div className="flex flex-col gap-1">
                                 <Link to="/" className="menu-item text-sm" onClick={() => setIsMenuOpen(false)}>Mercado</Link>
                                 {session && (
