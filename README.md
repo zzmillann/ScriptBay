@@ -8,7 +8,7 @@
 | **Autores** | Enrique Rincón · Marcos Ruiz González · Alejandro Millán |
 | **Año académico** | 2025 / 2026 |
 | **Ciclo** | CFGS Desarrollo de Aplicaciones Web (DAW) |
-| **Centro** | _IES (completar nombre del centro)_ |
+| **Centro** | IES Alonso de Avellaneda |
 
 ---
 
