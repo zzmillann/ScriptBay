@@ -42,14 +42,14 @@ const QrModal = ({ url, title, isOpen, onClose }) => {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+                    className="ds-modal-backdrop flex items-center justify-center px-4"
                 >
                     <motion.div
                         initial={{ opacity: 0, scale: 0.88, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.92, y: 12 }}
                         transition={{ duration: 0.25, ease: 'easeOut' }}
-                        className="relative w-full max-w-sm rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0e0e12] p-7 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.18)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7)]"
+                        className="ds-modal-shell w-full max-w-sm p-7"
                     >
                         {/* Botón cerrar */}
                         <button

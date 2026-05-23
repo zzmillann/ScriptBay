@@ -20,6 +20,7 @@ import Notificaciones from './pages/Notificaciones';
 import MisCompras from './pages/MisCompras';
 import GaleriaNFT from './pages/GaleriaNFT';
 import SwapSBT from './pages/SwapSBT';
+import DesignSystemLab from './pages/DesignSystemLab';
 import ParticlesBackground from './components/ParticlesBackground';
 import { WishlistProvider } from './context/WishlistContext';
 import ChatAssistant from './components/ChatAssistant';
@@ -37,8 +38,14 @@ const PageShell = () => {
   const [mostrarTour, setMostrarTour] = React.useState(false);
 
   useEffect(() => {
-    const publicPaths = ['/login', '/register'];
-    if (publicPaths.includes(location.pathname)) return;
+    const isPublicPath =
+      location.pathname === '/login' ||
+      location.pathname === '/register' ||
+      location.pathname === '/' ||
+      location.pathname === '/design-system' ||
+      location.pathname.startsWith('/producto/');
+
+    if (isPublicPath) return;
 
     let cancelado = false;
     (async () => {
@@ -91,6 +98,7 @@ const PageShell = () => {
                   <Route path="/create-product" element={<CreateProduct />} />
                   <Route path="/edit-product/:id" element={<EditProduct />} />
                   <Route path="/mis-compras/:id/acceso" element={<PurchasedAssetWorkspace />} />
+                  <Route path="/mis-compras/compra/:compraId/acceso" element={<PurchasedAssetWorkspace />} />
                   <Route path="/producto/:id" element={<ProductDetail />} />
                   <Route path="/wishlist" element={<Wishlist />} />
                   <Route path="/dashboard" element={<Dashboard />} />
@@ -101,6 +109,7 @@ const PageShell = () => {
                   <Route path="/mis-compras" element={<MisCompras />} />
                   <Route path="/galeria-nft" element={<GaleriaNFT />} />
                   <Route path="/swap" element={<SwapSBT />} />
+                  <Route path="/design-system" element={<DesignSystemLab />} />
                 </Routes>
               </motion.div>
             </AnimatePresence>

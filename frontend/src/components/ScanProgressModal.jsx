@@ -43,14 +43,14 @@ const ScanProgressModal = ({ abierto, estado, veredicto, mensajeError, onCerrar,
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm px-4"
+        className="ds-modal-backdrop z-[100] flex items-center justify-center px-4"
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.92, y: 24 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-950/95 via-zinc-900/90 to-black/95 p-7 shadow-[0_32px_72px_-16px_rgba(0,0,0,0.7)]"
+          className="ds-modal-shell w-full max-w-lg p-7"
         >
           {(aprobado || rechazado || error) && (
             <button

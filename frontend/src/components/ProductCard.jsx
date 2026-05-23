@@ -9,6 +9,8 @@ const ProductCard = ({ id, title, category, price, rating, reviews, image }) => 
     const [imgSrc, setImgSrc] = useState(image || fallbackImage);
     const { toggleWishlist, isInWishlist } = useWishlist();
     const liked = isInWishlist(id);
+    const isService = /servicio|service|api|microservicio|automatizacion|automation/i.test(String(category || ''));
+    const intentClass = isService ? 'ds-intent-service' : 'ds-intent-product';
 
     const handleWishlist = (e) => {
         e.preventDefault();
@@ -27,12 +29,10 @@ const ProductCard = ({ id, title, category, price, rating, reviews, image }) => 
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.35, ease: 'easeOut' }}
-                whileHover={{ y: -5, scale: 1.015 }}
+                whileHover={{ y: -3, scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
-                className="surface-card group flex h-full flex-col overflow-hidden
-                           hover:border-primary/25 dark:hover:border-primary/20
-                           hover:shadow-[0_12px_40px_-12px_rgba(255,26,26,0.18),0_2px_8px_rgba(0,0,0,0.08)]
-                           dark:hover:shadow-[0_20px_45px_-25px_rgba(239,68,68,0.4),0_0_16px_rgba(168,85,247,0.2)]"
+                className={`ds-card ds-card-l1 ds-grid-card ${intentClass} group flex h-full flex-col overflow-hidden`}
+                data-interactive="true"
             >
                 {/* Imagen */}
                 <motion.div layoutId={`product-image-${id}`} className="relative h-48 overflow-hidden bg-zinc-100 dark:bg-black">
@@ -44,7 +44,7 @@ const ProductCard = ({ id, title, category, price, rating, reviews, image }) => 
                     />
                     <div className="absolute inset-0 bg-linear-to-t from-zinc-900/70 dark:from-darker to-transparent opacity-60" />
                     <div className="absolute top-4 right-4">
-                        <span className="bg-white/90 dark:bg-dark/80 backdrop-blur-md text-primary text-xs font-bold px-3 py-1 rounded-full border border-primary/20 shadow-sm dark:shadow-none">
+                        <span className={`ds-pill ${isService ? 'ds-pill-service' : 'ds-pill-product'}`}>
                             {category}
                         </span>
                     </div>
@@ -84,7 +84,7 @@ const ProductCard = ({ id, title, category, price, rating, reviews, image }) => 
 
                     <motion.h3
                         layoutId={`product-title-${id}`}
-                        className="text-base-primary text-lg font-bold mb-1 group-hover:text-primary transition-colors leading-tight"
+                        className="text-base-primary text-lg font-bold mb-1 transition-colors leading-tight group-hover:text-zinc-100"
                     >
                         {title}
                     </motion.h3>
@@ -103,13 +103,7 @@ const ProductCard = ({ id, title, category, price, rating, reviews, image }) => 
                                 {price}€
                             </motion.span>
                         </div>
-                        <span className="flex items-center justify-center p-3 rounded-xl
-                                         border border-zinc-200 dark:border-white/10
-                                         bg-zinc-100 dark:bg-white/5
-                                         shadow-sm dark:shadow-none
-                                         transition-all duration-300 group/btn
-                                         hover:border-primary/30 hover:bg-primary/90
-                                         hover:shadow-[0_0_14px_rgba(239,68,68,0.45)]">
+                        <span className="ds-icon-neutral group/btn">
                             <ShoppingCart className="w-5 h-5 text-zinc-600 dark:text-white group-hover/btn:text-white group-hover/btn:scale-110 transition-all" />
                         </span>
                     </div>

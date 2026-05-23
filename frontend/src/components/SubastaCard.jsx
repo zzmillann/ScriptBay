@@ -21,6 +21,7 @@ const SubastaCard = ({ subasta, onExpire }) => {
     const progreso = Math.min(100, ((precioActual - precioSalida) / Math.max(maximo - precioSalida, 1)) * 100);
 
     const hayPujas = precioActual > precioSalida;
+    const isService = /servicio|service|api|microservicio|automatizacion|automation/i.test(String(producto.categoria || producto.tipo || ''));
 
     const handleExpire = () => {
         setExpirado(true);
@@ -33,10 +34,9 @@ const SubastaCard = ({ subasta, onExpire }) => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.35, ease: 'easeOut' }}
-            whileHover={{ y: -4, scale: 1.012 }}
-            className="surface-card flex flex-col overflow-hidden
-                       hover:border-primary/25 dark:hover:border-primary/20
-                       hover:shadow-[0_12px_40px_-12px_rgba(255,26,26,0.18)]"
+            whileHover={{ y: -3, scale: 1.01 }}
+            className={`ds-card ds-card-l1 ds-grid-card ${isService ? 'ds-intent-service' : 'ds-intent-product'} group flex flex-col overflow-hidden`}
+            data-interactive="true"
         >
             {/* Imagen */}
             <div className="relative h-44 overflow-hidden bg-zinc-100 dark:bg-black shrink-0">
@@ -64,7 +64,7 @@ const SubastaCard = ({ subasta, onExpire }) => {
 
                 {/* Categoría */}
                 <div className="absolute top-3 right-3">
-                    <span className="bg-white/90 dark:bg-dark/80 backdrop-blur-md text-primary text-xs font-bold px-3 py-1 rounded-full border border-primary/20">
+                    <span className={`ds-pill ${isService ? 'ds-pill-service' : 'ds-pill-product'}`}>
                         {producto.categoria || producto.tipo || 'Script'}
                     </span>
                 </div>
@@ -130,7 +130,7 @@ const SubastaCard = ({ subasta, onExpire }) => {
                     </span>
                     <Link
                         to={`/subastas/${subasta.id}`}
-                        className={`btn-primary text-xs px-4 py-1.5 ${expirado ? 'opacity-50 pointer-events-none' : ''}`}
+                        className={`ds-btn-neutral text-xs px-4 py-1.5 ${expirado ? 'opacity-50 pointer-events-none' : ''}`}
                     >
                         {expirado ? 'Ver resultado' : 'Pujar →'}
                     </Link>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gavel, Zap, ArrowLeft, Clock, TrendingUp, Trophy, AlertCircle, CheckCircle2, Trash2, XCircle } from 'lucide-react';
+import { Activity, Gavel, Zap, ArrowLeft, Clock, TrendingUp, Trophy, AlertCircle, CheckCircle2, Trash2, Users, XCircle } from 'lucide-react';
 import Countdown from '../components/Countdown';
 import { getSubasta, pujar, pagarSubastaGanada, cancelarSubasta, eliminarSubasta, compraInmediataDirecta } from '../services/subastasClient';
 import { getSession } from '../services/authClient';
@@ -267,6 +267,9 @@ const SubastaDetalle = () => {
     const soyGanador   = subasta.ganador_id === miId;
     const yaFuePageada = !!subasta.stripe_payment_intent;
     const minPuja      = (precioActual + incremento).toFixed(2);
+    const participantes = [...new Set((pujas || []).map((p) => p.nombre).filter(Boolean))].slice(0, 8);
+    const ultimasPujas = (pujas || []).slice(0, 5);
+    const deltaActual = Math.max(0, precioActual - precioSalida);
 
     return (
         <div className="max-w-5xl mx-auto px-6 py-12 mt-16">
@@ -579,7 +582,7 @@ const SubastaDetalle = () => {
 
                     {/* Soy el vendedor */}
                     {miId && subasta.vendedor_id === miId && (
-                        <div className="glass-card p-5 flex flex-col gap-3">
+                        <div className="glass-card p-5 flex flex-col gap-4">
                             <h2 className="text-sm font-bold text-base-primary flex items-center gap-2">
                                 <Gavel className="w-4 h-4 text-primary" />
                                 Gestión de tu subasta
@@ -591,12 +594,23 @@ const SubastaDetalle = () => {
                                 </p>
                             )}
 
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                                    <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-500">Pujas</p>
+                                    <p className="mt-1 text-sm font-semibold text-zinc-100">{pujas.length}</p>
+                                </div>
+                                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                                    <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-500">Incremento</p>
+                                    <p className="mt-1 text-sm font-semibold text-zinc-100">+{incremento.toFixed(2)} EUR</p>
+                                </div>
+                            </div>
+
                             {/* Cancelar (solo si activa y sin pujas) */}
                             {activa && (
                                 <button
                                     onClick={handleCancelar}
                                     disabled={cancelando || eliminando}
-                                    className="btn-secondary py-2 text-xs w-full flex items-center justify-center gap-2 disabled:opacity-50"
+                                    className="ds-btn-neutral py-2 text-xs w-full flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
                                     <XCircle className="w-3.5 h-3.5" />
                                     {cancelando ? 'Cancelando...' : 'Cancelar subasta'}
@@ -608,7 +622,7 @@ const SubastaDetalle = () => {
                                 <button
                                     onClick={() => setConfirmarEliminar(true)}
                                     disabled={cancelando || eliminando}
-                                    className="py-2 text-xs w-full flex items-center justify-center gap-2 rounded-xl border border-red-300 dark:border-red-500/40 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-400/5 hover:bg-red-100 dark:hover:bg-red-400/10 transition-colors disabled:opacity-50"
+                                    className="btn-danger-glass py-2 text-xs w-full disabled:opacity-50"
                                 >
                                     <Trash2 className="w-3.5 h-3.5" />
                                     Eliminar subasta
@@ -621,14 +635,14 @@ const SubastaDetalle = () => {
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => setConfirmarEliminar(false)}
-                                            className="flex-1 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-white/15 text-dimmed hover:text-base-primary transition-colors"
+                                            className="ds-btn-neutral flex-1 py-1.5 text-xs"
                                         >
                                             Cancelar
                                         </button>
                                         <button
                                             onClick={handleEliminar}
                                             disabled={eliminando}
-                                            className="flex-1 py-1.5 text-xs rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors disabled:opacity-50"
+                                            className="btn-danger-soft flex-1 py-1.5 text-xs disabled:opacity-50"
                                         >
                                             {eliminando ? 'Eliminando...' : 'Sí, eliminar'}
                                         </button>
@@ -650,6 +664,61 @@ const SubastaDetalle = () => {
                             )}
                         </div>
                     )}
+                </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+                <div className="glass-card p-5">
+                    <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-base-primary">
+                        <Activity className="h-4 w-4 text-primary" />
+                        Actividad reciente
+                    </h2>
+                    {ultimasPujas.length === 0 ? (
+                        <p className="text-sm text-dimmed">Aún no hay eventos recientes en esta subasta.</p>
+                    ) : (
+                        <div className="space-y-2.5">
+                            {ultimasPujas.map((p, i) => (
+                                <div key={p.id || `${p.nombre}-${i}`} className="ds-hover-row flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-xs font-semibold text-zinc-100">{p.nombre || 'Pujador'}</p>
+                                        <p className="text-[11px] text-zinc-500">
+                                            {new Date(p.created_at).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
+                                    <span className="shrink-0 text-xs font-semibold text-zinc-200">{Number(p.cantidad || 0).toFixed(2)} EUR</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="glass-card p-5">
+                    <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-base-primary">
+                        <Users className="h-4 w-4 text-primary" />
+                        Participación live
+                    </h2>
+
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                            <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-500">Participantes</p>
+                            <p className="mt-1 text-sm font-semibold text-zinc-100">{participantes.length}</p>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                            <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-500">Delta actual</p>
+                            <p className="mt-1 text-sm font-semibold text-zinc-100">+{deltaActual.toFixed(2)} EUR</p>
+                        </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {participantes.length === 0 && (
+                            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-zinc-500">Sin participantes aún</span>
+                        )}
+                        {participantes.map((name) => (
+                            <span key={name} className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-zinc-300">
+                                {name}
+                            </span>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>

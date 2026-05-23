@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Activity,
@@ -20,12 +20,13 @@ import {
   ShieldCheck,
   Sparkles,
   Upload,
-  Workflow
+  Workflow,
 } from 'lucide-react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { findPurchaseByProductId, buildPurchaseExperience, formatEurPrice } from '../data/purchaseExperience';
+import { findPurchaseByProductId, buildPurchaseExperience } from '../data/purchaseExperience';
 import { mockPurchases } from '../components/profile/PurchasesGrid';
 import { getValidSession } from '../services/authClient';
+import { apiUrl } from '../services/apiBase';
 
 const iconByMode = {
   bot: Bot,
@@ -33,210 +34,7 @@ const iconByMode = {
   prompt: Sparkles,
   automation: Workflow,
   education: GraduationCap,
-  asset: Box
-};
-
-const actionIconMap = {
-  play: Play,
-  workflow: Workflow,
-  copy: Copy,
-  download: Download,
-  book: BookOpen,
-  history: Clock3,
-  preview: Layers3,
-  upload: Upload,
-  check: CheckCircle2,
-  key: KeyRound
-};
-
-const MetricGrid = ({ items }) => (
-  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-    {items.map((metric) => (
-      <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-sm">
-        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">{metric.label}</p>
-        <p className="mt-2 text-lg font-semibold text-zinc-100">{metric.value}</p>
-        <p className="mt-1 text-xs text-zinc-500">{metric.meta}</p>
-      </div>
-    ))}
-  </div>
-);
-
-const ActionGrid = ({ actions, panelHoverClass }) => (
-  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-    {actions.map((action) => {
-      const Icon = actionIconMap[action.iconKey] || Sparkles;
-      return (
-        <button
-          key={action.label}
-          type="button"
-          className={`inline-flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition-all duration-200 ${panelHoverClass}`}
-        >
-          <div>
-            <p className="text-sm font-medium text-zinc-100">{action.label}</p>
-            <p className="mt-1 text-xs text-zinc-500">{action.meta}</p>
-          </div>
-          <Icon className="h-4 w-4 text-zinc-300" />
-        </button>
-      );
-    })}
-  </div>
-);
-
-const Panel = ({ title, subtitle, children, className = '' }) => (
-  <div className={`rounded-[24px] border border-white/10 bg-gradient-to-br from-zinc-950/90 via-zinc-900/80 to-black/85 p-5 ${className}`}>
-    <div className="mb-5">
-      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">{subtitle}</p>
-      <h2 className="mt-2 text-xl font-semibold text-zinc-100">{title}</h2>
-    </div>
-    {children}
-  </div>
-);
-
-const KeyValueRows = ({ rows }) => (
-  <div className="space-y-3">
-    {rows.map((row) => (
-      <div key={row.label} className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
-        <span className="text-sm text-zinc-400">{row.label}</span>
-        <span className="text-sm font-medium text-zinc-100">{row.value}</span>
-      </div>
-    ))}
-  </div>
-);
-
-const EventRows = ({ rows }) => (
-  <div className="space-y-3">
-    {rows.map((row) => (
-      <div key={row.label} className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-zinc-100">{row.label}</p>
-            <p className="text-xs text-zinc-500">{row.meta}</p>
-          </div>
-          <span className="text-sm text-zinc-300">{row.value}</span>
-        </div>
-      </div>
-    ))}
-  </div>
-);
-
-const SimpleRows = ({ rows }) => (
-  <div className="space-y-3">
-    {rows.map((row) => (
-      <div key={row.label} className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
-        <p className="text-sm font-medium text-zinc-100">{row.label}</p>
-        <p className="mt-1 text-xs text-zinc-500">{row.meta}</p>
-      </div>
-    ))}
-  </div>
-);
-
-const ChipGroup = ({ title, items }) => (
-  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-    <p className="text-sm font-medium text-zinc-100">{title}</p>
-    <div className="mt-3 flex flex-wrap gap-2">
-      {items.map((item) => (
-        <span key={item} className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs text-zinc-300">
-          {item}
-        </span>
-      ))}
-    </div>
-  </div>
-);
-
-const CodeBlock = ({ title, code }) => (
-  <div className="rounded-2xl border border-white/8 bg-black/30 p-4">
-    <div className="mb-3 flex items-center gap-2 text-sm font-medium text-zinc-100">
-      <FileCode2 className="h-4 w-4" />
-      {title}
-    </div>
-    <pre className="overflow-x-auto text-xs leading-6 text-zinc-300">
-      <code>{code}</code>
-    </pre>
-  </div>
-);
-
-const RuntimeWorkspace = ({ experience, panelHoverClass }) => (
-  <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-    <Panel title="Que incluye" subtitle="Uso real">
-      <KeyValueRows rows={experience.runtime.highlights} />
-    </Panel>
-    <Panel title="Configuracion rapida" subtitle="Primeros pasos">
-      <KeyValueRows rows={experience.runtime.setup} />
-    </Panel>
-    <Panel title="Integraciones" subtitle="Conectividad" className={panelHoverClass}>
-      <KeyValueRows rows={experience.runtime.integrations} />
-    </Panel>
-  </div>
-);
-
-const ToolkitWorkspace = ({ experience, panelHoverClass }) => (
-  <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-    <Panel title="Quick setup" subtitle="Instalacion">
-      <KeyValueRows rows={experience.toolkit.setup} />
-    </Panel>
-    <Panel title="Endpoints disponibles" subtitle="Referencia">
-      <SimpleRows rows={experience.toolkit.endpoints} />
-    </Panel>
-    <Panel title="Snippet base" subtitle="Integracion" className={panelHoverClass}>
-      <CodeBlock title={experience.toolkit.snippet.title} code={experience.toolkit.snippet.code} />
-    </Panel>
-    <div className="grid gap-5">
-      <Panel title="Compatibilidad" subtitle="Entorno">
-        <KeyValueRows rows={experience.toolkit.compatibility} />
-      </Panel>
-      <Panel title="Changelog" subtitle="Versiones">
-        <EventRows rows={experience.toolkit.changelog} />
-      </Panel>
-    </div>
-  </div>
-);
-
-const LibraryWorkspace = ({ experience, panelHoverClass }) => (
-  <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-    <Panel title="Preview del contenido" subtitle="Coleccion">
-      <EventRows rows={experience.library.previews} />
-    </Panel>
-    <div className="grid gap-5">
-      <Panel title="Categorias" subtitle="Organizacion">
-        <ChipGroup title="Categorias activas" items={experience.library.categories} />
-      </Panel>
-      <Panel title="Tags IA" subtitle="Indexacion">
-        <ChipGroup title="Etiquetas disponibles" items={experience.library.tags} />
-      </Panel>
-    </div>
-    <Panel title="Archivos incluidos" subtitle="Recursos" className={panelHoverClass}>
-      <SimpleRows rows={experience.library.files} />
-    </Panel>
-    <Panel title="Compatibilidad" subtitle="Exportacion">
-      <KeyValueRows rows={experience.library.compatibility} />
-    </Panel>
-  </div>
-);
-
-const EducationWorkspace = ({ experience, panelHoverClass }) => (
-  <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-    <Panel title="Progreso actual" subtitle="Seguimiento">
-      <KeyValueRows rows={experience.education.progress} />
-    </Panel>
-    <Panel title="Modulos" subtitle="Ruta de aprendizaje">
-      <SimpleRows rows={experience.education.modules} />
-    </Panel>
-    <Panel title="Recursos premium" subtitle="Material" className={panelHoverClass}>
-      <SimpleRows rows={experience.education.resources} />
-    </Panel>
-    <Panel title="Siguiente accion" subtitle="Continuidad">
-      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-sm text-zinc-300">
-        Retoma el siguiente modulo y descarga el material complementario antes de continuar.
-      </div>
-    </Panel>
-  </div>
-);
-
-const WorkspaceRenderer = ({ experience, panelHoverClass }) => {
-  if (experience.archetype === 'runtime') return <RuntimeWorkspace experience={experience} panelHoverClass={panelHoverClass} />;
-  if (experience.archetype === 'toolkit') return <ToolkitWorkspace experience={experience} panelHoverClass={panelHoverClass} />;
-  if (experience.archetype === 'education') return <EducationWorkspace experience={experience} panelHoverClass={panelHoverClass} />;
-  return <LibraryWorkspace experience={experience} panelHoverClass={panelHoverClass} />;
+  asset: Box,
 };
 
 const dataUrlToBlob = (dataUrl) => {
@@ -245,7 +43,7 @@ const dataUrlToBlob = (dataUrl) => {
     const mime = /data:([^;]+)/.exec(meta || '')?.[1] || 'application/octet-stream';
     const bin = atob(base64);
     const arr = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    for (let i = 0; i < bin.length; i += 1) arr[i] = bin.charCodeAt(i);
     return new Blob([arr], { type: mime });
   } catch {
     return null;
@@ -268,12 +66,65 @@ const extensionPorMime = (mime) => {
   return map[mime] || 'bin';
 };
 
+const SectionCard = ({ title, subtitle, icon: Icon, children, className = '', hoverClass = '' }) => (
+  <div className={`rounded-[24px] border border-white/10 bg-gradient-to-br from-zinc-950/92 via-zinc-900/84 to-black/88 p-5 transition-all duration-200 hover:-translate-y-[2px] ${hoverClass} ${className}`}>
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div>
+        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">{subtitle}</p>
+        <h2 className="mt-1 text-lg font-semibold text-zinc-100">{title}</h2>
+      </div>
+      {Icon && <Icon className="h-4 w-4 text-zinc-300" />}
+    </div>
+    {children}
+  </div>
+);
+
+const QuickStartTimeline = ({ accent }) => {
+  const steps = [
+    { id: 1, icon: Download, title: 'Descargar paquete', desc: 'Baja el bundle principal y valida checksum.' },
+    { id: 2, icon: KeyRound, title: 'Configurar variables', desc: 'Completa env.example con credenciales y endpoints.' },
+    { id: 3, icon: Play, title: 'Ejecutar instalación', desc: 'Lanza install.sh y verifica logs de inicialización.' },
+    { id: 4, icon: BookOpen, title: 'Leer documentación', desc: 'Revisa guía técnica y runbook de despliegue.' },
+  ];
+
+  return (
+    <div className="space-y-3">
+      {steps.map((step, idx) => {
+        const Icon = step.icon;
+        const isLast = idx === steps.length - 1;
+        return (
+          <div key={step.id} className={`relative rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 transition-all duration-200 ${accent.rowHover}`}>
+            {!isLast && (
+              <span className={`absolute left-[27px] top-[46px] h-8 w-px ${accent.line}`} aria-hidden="true" />
+            )}
+            <div className="flex items-start gap-3">
+              <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg border text-xs font-bold ${accent.softBadge}`}>
+                {step.id}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <Icon className={`h-4 w-4 ${accent.icon}`} />
+                  <p className="text-sm font-semibold text-zinc-100">{step.title}</p>
+                </div>
+                <p className="mt-1 text-xs text-zinc-400">{step.desc}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const PurchasedAssetWorkspace = () => {
-  const { id } = useParams();
+  const { id, compraId } = useParams();
   const location = useLocation();
+
   const [descargando, setDescargando] = useState(false);
   const [errorDescarga, setErrorDescarga] = useState(null);
+  const [copiadoAcceso, setCopiadoAcceso] = useState(false);
 
+  const purchaseId = compraId || location.state?.purchase?.id || null;
   const purchase = location.state?.purchase || findPurchaseByProductId(mockPurchases, id) || {
     id,
     productId: id,
@@ -282,191 +133,394 @@ const PurchasedAssetWorkspace = () => {
     date: new Date().toISOString().slice(0, 10),
     type: 'producto',
     status: 'completed',
-    image: `https://picsum.photos/seed/workspace-${id}/1200/900`
+    image: `https://picsum.photos/seed/workspace-${id}/1200/900`,
   };
+
+  const isService = ['servicio', 'service'].includes(String(purchase.type || '').toLowerCase());
+  const backTarget = location.state?.from || '/profile?view=compras';
+  const backLabel = location.state?.fromLabel || 'Volver a mis compras';
+  const dashboardTarget = purchase.productId ? `/producto/${purchase.productId}` : null;
+  const documentationUrl = purchase.docsUrl || null;
+
+  const experience = purchase.experience || buildPurchaseExperience(purchase);
+  const AccentIcon = iconByMode[experience.mode] || Box;
+
+  const accessCode = `SB-${String(purchase.id || purchase.productId || 'ACCESS').slice(0, 8).toUpperCase()}`;
+
+  const accent = useMemo(() => {
+    if (isService) {
+      return {
+        border: 'border-blue-400/25',
+        glow: 'shadow-[0_22px_60px_-30px_rgba(59,130,246,0.55)]',
+        softBadge: 'border-blue-400/40 bg-blue-500/15 text-blue-200',
+        icon: 'text-blue-300',
+        line: 'bg-blue-400/35',
+        cta: 'border-blue-400/55 bg-blue-500/30 text-white hover:bg-blue-500/45 hover:shadow-[0_0_24px_rgba(59,130,246,0.55)]',
+        ctaGhost: 'border-blue-400/35 bg-blue-500/12 text-blue-100 hover:bg-blue-500/20',
+        rowHover: 'hover:border-blue-400/40 hover:bg-blue-500/[0.08]',
+      };
+    }
+
+    return {
+      border: 'border-purple-400/25',
+      glow: 'shadow-[0_22px_60px_-30px_rgba(168,85,247,0.55)]',
+      softBadge: 'border-purple-400/40 bg-purple-500/15 text-purple-200',
+      icon: 'text-purple-300',
+      line: 'bg-purple-400/35',
+      cta: 'border-purple-400/55 bg-purple-500/30 text-white hover:bg-purple-500/45 hover:shadow-[0_0_24px_rgba(168,85,247,0.55)]',
+      ctaGhost: 'border-purple-400/35 bg-purple-500/12 text-purple-100 hover:bg-purple-500/20',
+      rowHover: 'hover:border-purple-400/40 hover:bg-purple-500/[0.08]',
+    };
+  }, [isService]);
+
+  const resources = [
+    {
+      id: 'source',
+      icon: FileCode2,
+      name: 'source.zip',
+      desc: 'Código fuente principal listo para setup',
+      size: isService ? '1.8 MB' : '2.4 MB',
+      downloadable: true,
+    },
+    {
+      id: 'readme',
+      icon: BookOpen,
+      name: 'README.md',
+      desc: 'Documentación técnica de instalación',
+      size: '18 KB',
+      downloadable: false,
+    },
+    {
+      id: 'env',
+      icon: KeyRound,
+      name: 'env.example',
+      desc: 'Plantilla de variables de entorno',
+      size: '2 KB',
+      downloadable: false,
+    },
+    {
+      id: 'install',
+      icon: Activity,
+      name: 'install.sh',
+      desc: 'Script de instalación inicial',
+      size: '6 KB',
+      downloadable: false,
+    },
+  ];
+
+  const compat = [
+    { label: 'React', icon: Sparkles },
+    { label: 'Node.js', icon: Bot },
+    { label: 'Next.js', icon: Layers3 },
+    { label: 'Docker', icon: Box },
+    { label: 'API Ready', icon: Workflow },
+    { label: 'PostgreSQL', icon: Upload },
+  ];
+
+  const technicalRows = [
+    { label: 'Acceso', value: 'Activo' },
+    { label: 'Soporte', value: 'Incluido' },
+    { label: 'Licencia', value: 'Digital verificable' },
+    { label: 'Actualizaciones', value: 'Habilitadas' },
+  ];
+
+  const docsRows = [
+    {
+      title: 'Setup rápido',
+      value: 'npm install && npm run dev',
+    },
+    {
+      title: 'Requisitos',
+      value: 'Node 18+, acceso API, variables ENV',
+    },
+    {
+      title: 'Variables ENV',
+      value: 'API_KEY, API_URL, JWT_SECRET',
+    },
+    {
+      title: 'Dependencias',
+      value: 'axios, zod, dotenv, react-query',
+    },
+    {
+      title: 'Changelog',
+      value: 'v2.1.0: mejoras de rendimiento y auth',
+    },
+    {
+      title: 'Integraciones',
+      value: 'REST API, webhook, OAuth2',
+    },
+  ];
 
   const handleDescargar = async () => {
     setDescargando(true);
     setErrorDescarga(null);
+
     try {
       const session = await getValidSession();
-      if (!session?.accessToken) throw new Error('Sesión expirada');
-      const res = await fetch(`http://localhost:3000/api/productos/DescargarArchivo/${purchase.productId || id}`, {
+      if (!session?.accessToken) throw new Error('Sesion expirada');
+
+      const downloadPath = purchase.productId || id
+        ? `/api/productos/DescargarArchivo/${purchase.productId || id}`
+        : `/api/productos/DescargarArchivoCompra/${purchaseId}`;
+
+      const res = await fetch(apiUrl(downloadPath), {
         headers: { Authorization: `Bearer ${session.accessToken}` },
       });
       const data = await res.json();
+
       if (data.codigo !== 0) throw new Error(data.mensaje || 'No se pudo descargar el archivo');
-      if (!data.archivo) throw new Error('El producto no tiene archivo asociado.');
+      if (!data.archivo) throw new Error('El producto no tiene archivo asociado');
 
       const blob = dataUrlToBlob(data.archivo);
       if (!blob) throw new Error('Archivo corrupto');
+
       const ext = extensionPorMime(blob.type);
-      const nombreSafe = (data.titulo || 'producto').replace(/[^a-z0-9\-_]+/gi, '_');
+      const safeName = (data.titulo || purchase.title || 'producto').replace(/[^a-z0-9\-_]+/gi, '_');
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${nombreSafe}.${ext}`;
+      a.download = `${safeName}.${ext}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      setTimeout(() => URL.revokeObjectURL(url), 1200);
     } catch (err) {
-      setErrorDescarga(err.message);
+      setErrorDescarga(err.message || 'No se pudo completar la descarga');
     } finally {
       setDescargando(false);
     }
   };
 
-  const experience = purchase.experience || buildPurchaseExperience(purchase);
-  const AccentIcon = iconByMode[experience.mode] || Box;
-  const isService = String(purchase.type || '').toLowerCase() === 'servicio';
-  const backTarget = location.state?.from || '/profile?view=compras';
-  const backLabel = location.state?.fromLabel || 'Volver a mis compras';
-  const accentClass = isService
-    ? 'from-blue-500/20 via-blue-500/10 to-transparent border-blue-400/20 shadow-[0_24px_60px_-28px_rgba(59,130,246,0.55)]'
-    : 'from-purple-500/20 via-purple-500/10 to-transparent border-purple-400/20 shadow-[0_24px_60px_-28px_rgba(168,85,247,0.55)]';
-  const panelHoverClass = isService
-    ? 'hover:border-blue-400/35 hover:bg-blue-500/[0.06]'
-    : 'hover:border-purple-400/35 hover:bg-purple-500/[0.06]';
+  const copyAccess = async () => {
+    try {
+      await navigator.clipboard.writeText(accessCode);
+      setCopiadoAcceso(true);
+      setTimeout(() => setCopiadoAcceso(false), 1300);
+    } catch {
+      setErrorDescarga('No se pudo copiar el código de acceso');
+    }
+  };
 
   return (
     <section className="min-h-screen px-6 pb-20 pt-28">
       <div className="mx-auto max-w-7xl">
-        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.32, ease: 'easeOut' }} className="space-y-8">
-          <Link to={backTarget} className="btn-secondary text-sm hover:scale-[1.02]">
-            <ArrowLeft className="h-4 w-4" /> {backLabel}
-          </Link>
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.32, ease: 'easeOut' }}
+          className="space-y-6"
+        >
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2">
+              <Link to={backTarget} className="btn-secondary text-sm inline-flex">
+                <ArrowLeft className="h-4 w-4" /> {backLabel}
+              </Link>
+              <p className="text-xs uppercase tracking-[0.15em] text-zinc-500">
+                Mis compras &gt; <span className="text-zinc-200">{purchase.title}</span>
+              </p>
+            </div>
 
-          <div className={`relative overflow-hidden rounded-[28px] border bg-gradient-to-br from-zinc-950/95 via-zinc-900/88 to-black/90 p-6 md:p-8 ${accentClass}`}>
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_32%)]" />
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleDescargar}
+                disabled={descargando}
+                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all disabled:opacity-60 ${accent.ctaGhost}`}
+              >
+                {descargando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                Descargar
+              </button>
+
+              <Link
+                to={dashboardTarget || '#'}
+                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${dashboardTarget ? accent.ctaGhost : 'pointer-events-none border-white/10 bg-white/[0.03] text-zinc-500'}`}
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Abrir dashboard
+              </Link>
+
+              <a
+                href={documentationUrl || '#'}
+                target="_blank"
+                rel="noreferrer"
+                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${documentationUrl ? accent.ctaGhost : 'pointer-events-none border-white/10 bg-white/[0.03] text-zinc-500'}`}
+              >
+                <BookOpen className="h-3.5 w-3.5" /> Documentacion
+              </a>
+
+              <button
+                type="button"
+                onClick={copyAccess}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-zinc-200 transition-all hover:bg-white/[0.08]"
+              >
+                <Copy className="h-3.5 w-3.5" /> {copiadoAcceso ? 'Copiado' : 'Copiar acceso'}
+              </button>
+            </div>
+          </div>
+
+          <div className={`relative overflow-hidden rounded-[28px] border bg-gradient-to-br from-zinc-950/95 via-zinc-900/88 to-black/90 p-6 md:p-8 transition-all duration-300 hover:-translate-y-[2px] ${accent.border} ${accent.glow}`}>
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,26,26,0.16),transparent_38%)]" />
             <div className="relative z-10 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
               <div className="space-y-5">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  {experience.archetypeLabel}
-                </div>
-
                 <div className="flex items-start gap-4">
-                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-zinc-100">
+                  <div className={`grid h-14 w-14 shrink-0 place-items-center rounded-2xl border bg-white/[0.05] text-zinc-100 ${accent.border}`}>
                     <AccentIcon className="h-6 w-6" />
                   </div>
                   <div className="space-y-2">
                     <h1 className="text-3xl font-bold tracking-tight text-zinc-50 md:text-4xl">{purchase.title}</h1>
                     <p className="max-w-2xl text-sm leading-7 text-zinc-400">{experience.accessDescription}</p>
-                  </div>
-                </div>
-
-                <MetricGrid items={experience.metrics.slice(0, 3)} />
-                <ActionGrid actions={experience.actions} panelHoverClass={panelHoverClass} />
-              </div>
-
-              <div className="grid gap-4">
-                <div className="rounded-[24px] border border-white/10 bg-black/30 p-5 backdrop-blur-xl">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Workspace</p>
-                  <p className="mt-2 text-xl font-semibold text-zinc-100">{experience.workspaceLabel}</p>
-                  <div className="mt-5 space-y-3 text-sm text-zinc-400">
-                    <div className="flex items-center justify-between">
-                      <span>Licencia</span>
-                      <span className="text-zinc-200">{experience.licenseLabel}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Precio</span>
-                      <span className="text-zinc-200">{formatEurPrice(purchase.price)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Soporte</span>
-                      <span className="text-zinc-200">Documentacion + guia</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/40 bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold text-emerald-200">
+                        <CheckCircle2 className="h-3 w-3" /> Activo
+                      </span>
+                      <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold text-zinc-200">v2.1.0</span>
+                      <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold text-zinc-300">
+                        Ultima actualizacion: {experience.mintedAt && experience.mintedAt !== '—' ? experience.mintedAt : 'reciente'}
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5 backdrop-blur-xl">
-                  <div className="flex items-center gap-2 text-sm font-medium text-zinc-100">
-                    <Activity className="h-4 w-4" />
-                    Siguiente accion recomendada
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 ${accent.rowHover}`}>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Archivos incluidos</p>
+                    <p className="mt-2 text-lg font-semibold text-zinc-100">{resources.length}</p>
                   </div>
-                  <p className="mt-3 text-sm leading-7 text-zinc-400">{experience.recommendation}</p>
-                  <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-sm text-zinc-300">
-                    Este acceso ya no vende el producto. Sirve para operarlo, integrarlo o consumir su contenido segun su arquetipo.
+                  <div className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 ${accent.rowHover}`}>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Tecnologias</p>
+                    <p className="mt-2 text-lg font-semibold text-zinc-100">{isService ? 5 : 6}</p>
+                  </div>
+                  <div className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 ${accent.rowHover}`}>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Tamano total</p>
+                    <p className="mt-2 text-lg font-semibold text-zinc-100">{isService ? '1.8 MB' : '2.4 MB'}</p>
+                  </div>
+                  <div className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 ${accent.rowHover}`}>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Compatibilidad</p>
+                    <p className="mt-2 text-lg font-semibold text-zinc-100">{isService ? 'Service/API' : 'Web/App/API'}</p>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="rounded-[24px] border border-emerald-400/25 bg-gradient-to-br from-emerald-500/[0.08] via-zinc-900/70 to-black/80 p-5 md:p-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-start gap-4">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-emerald-400/30 bg-emerald-500/10 text-emerald-200">
-                  <Download className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-emerald-300/80">Tu compra</p>
-                  <h2 className="mt-1 text-lg font-semibold text-zinc-100">Descarga el archivo del producto</h2>
-                  <p className="mt-1 text-xs text-zinc-400">Acceso exclusivo: solo tú (comprador verificado) puedes bajar este recurso.</p>
-                </div>
-              </div>
-              <button
-                onClick={handleDescargar}
-                disabled={descargando}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/35 bg-emerald-500/15 px-5 py-2.5 text-sm font-semibold text-emerald-100 transition-all hover:scale-[1.02] hover:bg-emerald-500/25 disabled:opacity-50 disabled:hover:scale-100"
-              >
-                {descargando ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Descargando...
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-4 w-4" /> Descargar archivo
-                  </>
-                )}
-              </button>
-            </div>
-            {errorDescarga && (
-              <p className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">{errorDescarga}</p>
-            )}
-          </div>
-
-          {experience.hasRealTx && (
-            <div className="rounded-[24px] border border-violet-400/25 bg-gradient-to-br from-violet-500/[0.08] via-zinc-900/70 to-black/80 p-5 md:p-6">
-              <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-violet-400/30 bg-violet-500/10 text-violet-200">
-                    <ShieldCheck className="h-5 w-5" />
+              <SectionCard title="Acceso tecnico" subtitle="Workspace privado" icon={ShieldCheck} className="h-fit" hoverClass={accent.rowHover}>
+                <div className="space-y-2 text-sm text-zinc-300">
+                  <div className={`flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 transition-all duration-200 ${accent.rowHover}`}>
+                    <span className="text-zinc-500">Codigo acceso</span>
+                    <span className="font-mono text-zinc-100">{accessCode}</span>
                   </div>
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-violet-300/80">Certificado on-chain</p>
-                    <h2 className="mt-1 text-lg font-semibold text-zinc-100">Transaccion verificada en Sepolia</h2>
-                    <p className="mt-1 text-xs text-zinc-400">Tu compra ha minteado una licencia NFT registrada en la blockchain.</p>
+                  <div className={`flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 transition-all duration-200 ${accent.rowHover}`}>
+                    <span className="text-zinc-500">Licencia</span>
+                    <span>Activa</span>
+                  </div>
+                  <div className={`flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 transition-all duration-200 ${accent.rowHover}`}>
+                    <span className="text-zinc-500">Soporte</span>
+                    <span>Incluido</span>
+                  </div>
+                  <div className={`flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 transition-all duration-200 ${accent.rowHover}`}>
+                    <span className="text-zinc-500">Ultima sync</span>
+                    <span>{experience.transferDays}d</span>
+                  </div>
+                  <div className={`flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 transition-all duration-200 ${accent.rowHover}`}>
+                    <span className="text-zinc-500">Build</span>
+                    <span>stable-2.1.0</span>
                   </div>
                 </div>
-                <a
-                  href={experience.explorerUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-violet-400/35 bg-violet-500/15 px-4 py-2.5 text-sm font-semibold text-violet-100 transition-all hover:scale-[1.02] hover:bg-violet-500/25"
+
+                <button
+                  type="button"
+                  onClick={isService ? undefined : handleDescargar}
+                  className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all ${accent.cta}`}
                 >
-                  <ExternalLink className="h-4 w-4" /> Ver en Etherscan
-                </a>
-              </div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Tx hash</p>
-                  <p className="mt-2 font-mono text-xs text-zinc-200 break-all">{experience.txHash}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Wallet propietaria</p>
-                  <p className="mt-2 font-mono text-xs text-zinc-200">{experience.walletShort}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Red</p>
-                  <p className="mt-2 text-sm font-semibold text-zinc-100">{experience.network}</p>
-                </div>
-              </div>
+                  {isService ? <ExternalLink className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                  {isService ? 'Abrir dashboard' : 'Descargar pack'}
+                </button>
+              </SectionCard>
             </div>
-          )}
+          </div>
 
-          <WorkspaceRenderer experience={experience} panelHoverClass={panelHoverClass} />
+          <div className="grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
+            <div className="space-y-5">
+              <SectionCard title="Recursos incluidos" subtitle="Archivos del paquete" icon={Layers3} hoverClass={accent.rowHover}>
+                <div className="space-y-2">
+                  {resources.map((resource) => {
+                    const Icon = resource.icon;
+                    return (
+                      <div
+                        key={resource.id}
+                        className={`flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 transition-all ${accent.rowHover}`}
+                      >
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border ${accent.softBadge}`}>
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-zinc-100">{resource.name}</p>
+                            <p className="text-xs text-zinc-400">{resource.desc}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-xs text-zinc-400">{resource.size}</span>
+                          <button
+                            type="button"
+                            onClick={resource.downloadable ? handleDescargar : undefined}
+                            disabled={!resource.downloadable || descargando}
+                            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${resource.downloadable ? accent.ctaGhost : 'border-white/10 bg-white/[0.03] text-zinc-500'}`}
+                          >
+                            {resource.downloadable ? 'Descargar' : 'Incluido'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Documentacion / info tecnica" subtitle="Panel tecnico" icon={FileCode2} hoverClass={accent.rowHover}>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {docsRows.map((row) => (
+                    <div key={row.title} className={`rounded-xl border border-white/10 bg-white/[0.03] p-3 transition-all duration-200 ${accent.rowHover}`}>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">{row.title}</p>
+                      <p className="mt-1 text-sm text-zinc-200">{row.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            </div>
+
+            <div className="space-y-5">
+              <SectionCard title="Compatibilidad" subtitle="Stack soportado" icon={Workflow} hoverClass={accent.rowHover}>
+                <div className="grid grid-cols-2 gap-2">
+                  {compat.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div key={item.label} className={`flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 transition-all ${accent.rowHover}`}>
+                        <Icon className={`h-4 w-4 ${accent.icon}`} />
+                        <span className="text-xs font-semibold text-zinc-100">{item.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Quick Start" subtitle="Onboarding tecnico" icon={Play} hoverClass={accent.rowHover}>
+                <QuickStartTimeline accent={accent} />
+              </SectionCard>
+
+              <SectionCard title="Accesos y licencia" subtitle="Estado" icon={CheckCircle2} hoverClass={accent.rowHover}>
+                <div className="space-y-2 text-sm text-zinc-200">
+                  {technicalRows.map((row) => (
+                    <div key={row.label} className={`flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 transition-all duration-200 ${accent.rowHover}`}>
+                      <span className="text-zinc-500">{row.label}</span>
+                      <span>{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            </div>
+          </div>
+
+          {errorDescarga && (
+            <p className="rounded-xl border border-red-400/35 bg-red-500/10 px-3 py-2 text-xs text-red-200">{errorDescarga}</p>
+          )}
         </motion.div>
       </div>
     </section>
