@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Github, GraduationCap, Linkedin, MapPin, Package, User, X } from 'lucide-react';
+import { apiUrl } from '../services/apiBase';
 
 const getInitials = (value) => {
     if (!value) return 'U';
@@ -63,7 +64,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, session }) => {
         const cargarProductos = async () => {
             try {
                 setIsLoadingProductos(true);
-                const response = await fetch('http://localhost:3000/api/productos/MisProductos', {
+                const response = await fetch(apiUrl('/api/productos/MisProductos'), {
                     headers: {
                         Authorization: `Bearer ${session.accessToken}`
                     },
@@ -94,7 +95,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, session }) => {
 
     return (
         <div
-            className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-md p-4 sm:p-8"
+            className="ds-modal-backdrop z-[120] p-4 sm:p-8"
             onMouseDown={(event) => {
                 if (event.target === event.currentTarget) {
                     onClose();
@@ -108,7 +109,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, session }) => {
                         <p className="text-base sm:text-lg text-white mt-1">Así es como otros usuarios ven este perfil en ScriptBay.</p>
                     </div>
 
-                    <div className="group relative w-full rounded-3xl overflow-hidden border border-white/10 bg-darker/95 shadow-[0_25px_80px_-28px_rgba(255,30,80,0.4),0_10px_40px_-20px_rgba(168,85,247,0.35)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/45 hover:shadow-[0_34px_110px_-34px_rgba(255,30,80,0.6),0_20px_56px_-24px_rgba(168,85,247,0.5)]">
+                    <div className="group relative w-full ds-card ds-card-l1 ds-grid-card bg-darker/95" data-interactive="true">
                     <button
                         type="button"
                         onClick={onClose}
@@ -167,7 +168,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, session }) => {
 
                         <div className="mt-8 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8">
                             <section className="space-y-6">
-                                <div className="glass-card border-none p-6 transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,30,80,0.15),0_0_18px_rgba(168,85,247,0.15)] hover:border-primary/30">
+                                <div className="glass-card border-none p-6">
                                     <h3 className="text-xl font-bold mb-5">Perfil público</h3>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -188,7 +189,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, session }) => {
                                     </div>
                                 </div>
 
-                                <div className="glass-card border-none p-6 transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,30,80,0.15),0_0_18px_rgba(168,85,247,0.15)] hover:border-primary/30">
+                                <div className="glass-card border-none p-6">
                                     <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                                         <GraduationCap className="w-5 h-5 text-primary" /> Educación
                                     </h3>
@@ -208,7 +209,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, session }) => {
                             </section>
 
                             <aside className="space-y-6">
-                                <div className="glass-card border-none p-6 space-y-4 transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,30,80,0.15),0_0_18px_rgba(168,85,247,0.15)] hover:border-primary/30">
+                                <div className="glass-card border-none p-6 space-y-4">
                                     <h3 className="text-lg font-bold">Enlaces</h3>
 
                                     <div>
@@ -250,7 +251,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, session }) => {
                                     </div>
                                 </div>
 
-                                <div className="glass-card border-none p-6 transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,30,80,0.15),0_0_18px_rgba(168,85,247,0.15)] hover:border-primary/30">
+                                <div className="glass-card border-none p-6">
                                     <h3 className="text-lg font-bold mb-3">Vista rápida</h3>
                                     <div className="text-sm space-y-2 text-subtle">
                                         <p className="flex items-center gap-2"><User className="w-4 h-4 text-primary" /> {username}</p>
@@ -262,7 +263,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, session }) => {
                             </aside>
                         </div>
 
-                        <div className="mt-8 glass-card border-none p-6 transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,30,80,0.15),0_0_18px_rgba(168,85,247,0.15)] hover:border-primary/30">
+                        <div className="mt-8 glass-card border-none p-6">
                             <h3 className="text-lg font-bold text-base-primary flex items-center gap-2 mb-4">
                                 <Package className="w-5 h-5 text-primary" />
                                 Productos publicados
@@ -273,7 +274,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, session }) => {
                             ) : productos.length > 0 ? (
                                 <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                                     {productos.map((producto) => (
-                                        <article key={producto.id} className="rounded-xl border border-white/8 bg-white/5 px-4 py-3">
+                                        <article key={producto.id} className="ds-hover-row rounded-xl border border-white/8 bg-white/5 px-4 py-3">
                                             <p className="text-sm font-semibold text-base-primary line-clamp-1">{producto.titulo || 'Producto sin título'}</p>
                                             <p className="text-xs text-faint mt-1">
                                                 {(producto.categoria || 'General')} · {typeof producto.precio === 'number' ? `${producto.precio}€` : 'Precio no definido'}

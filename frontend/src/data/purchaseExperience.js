@@ -28,6 +28,24 @@ export const formatEurPrice = (value) => `${parseNumericPrice(value).toFixed(0)}
 
 export const formatEthPrice = (value) => `≈ ${(parseNumericPrice(value) / ETH_REFERENCE_EUR).toFixed(3)} ETH`;
 
+const toDeterministicSeed = (...candidates) => {
+  for (const candidate of candidates) {
+    const n = Number(candidate);
+    if (Number.isFinite(n) && n > 0) return Math.floor(n);
+  }
+
+  const source = candidates
+    .map((candidate) => String(candidate || ''))
+    .join('|');
+
+  // Simple hash estable para IDs no numericos (por ejemplo UUID).
+  const hash = Array.from(source).reduce((acc, char, index) => {
+    return (acc + char.charCodeAt(0) * (index + 1)) % 100000;
+  }, 0);
+
+  return hash || 1;
+};
+
 export const shortenHash = (value, size = 4) => {
   const stringValue = String(value || '');
   if (stringValue.length <= size * 2) return stringValue;
@@ -240,7 +258,7 @@ const formatMintDate = (value) => {
 };
 
 export const buildPurchaseExperience = (purchase = {}) => {
-  const seed = Number(purchase.productId || purchase.id || 1);
+  const seed = toDeterministicSeed(purchase.productId, purchase.id, 1);
   const amount = parseNumericPrice(purchase.price || purchase.precio || 0);
   const mode = inferPurchaseMode(purchase);
   const wallet = walletPool[seed % walletPool.length];

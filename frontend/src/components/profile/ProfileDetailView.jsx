@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Pencil, Star, Trash2, ShoppingBag, TrendingUp } from 'lucide-react';
 import { normalizeImageUrl } from '../../utils/imageUrl';
-import PurchasesGrid, { mockPurchases } from './PurchasesGrid';
+import PurchasesGrid from './PurchasesGrid';
 
 const ProfileDetailView = ({
     activeSection,
@@ -26,15 +26,15 @@ const ProfileDetailView = ({
 }) => {
     const normalizedPurchases = (misCompras || []).map((compra, index) => ({
         id: compra.id || `compra-${index}`,
-        productId: compra.producto_id || compra.productId || compra.product_id || compra.idProducto || compra.id_producto || compra.id_producto_comprado,
-        title: compra.titulo || 'Compra sin titulo',
+        productId: compra.producto_id || compra.productId || compra.product_id || compra.idProducto || compra.id_producto || compra.id_producto_comprado || compra.productos?.id,
+        title: compra.productos?.titulo || compra.titulo || 'Compra sin titulo',
         price: compra.precio ? `${compra.precio} EUR` : (compra.metodo_pago || 'Sin precio'),
         date: compra.created_at || new Date().toISOString().slice(0, 10),
         status: String(compra.estado || '').toLowerCase().includes('pend') ? 'Pendiente' : 'Completado',
         type: compra.productos?.tipo || compra.productos?.categoria || compra.tipo || compra.type || 'producto',
-        image: compra.productos?.imagen ? normalizeImageUrl(compra.productos.imagen) : `https://via.placeholder.com/300x180/171717/ffffff?text=Compra+${index + 1}`
+        image: normalizeImageUrl(compra.productos?.imagen || compra.imagen || '') || `https://picsum.photos/seed/compra-${compra.producto_id || compra.productos?.id || index + 1}/640/420`
     }));
-    const purchasesToRender = normalizedPurchases.length ? normalizedPurchases : mockPurchases;
+    const purchasesToRender = normalizedPurchases;
 
     return (
         <>
@@ -82,9 +82,7 @@ const ProfileDetailView = ({
                                     const imageUrl = normalizeImageUrl(product.imagen) || `https://picsum.photos/seed/profile-${product.id}/500/320`;
                                     const productType = String(product?.type ?? product?.tipo ?? '').toLowerCase();
                                     const isService = productType === 'service' || productType === 'servicio' || isServiceProduct(product);
-                                    const toneHoverClass = isService
-                                        ? 'hover:border-blue-500/45 hover:shadow-blue-500/30'
-                                        : 'hover:border-purple-500/45 hover:shadow-purple-500/30';
+                                    const toneHoverClass = 'hover:border-red-900/55 hover:shadow-[0_0_14px_rgba(255,46,46,0.10)]';
                                     const productRating = Number(product?.rating_promedio ?? product?.rating ?? 4.8);
                                     const productReviews = Number(product?.total_resenas ?? product?.resenas ?? 12);
                                     const productBadge = product.id % 3 === 0 ? 'Top' : 'Nuevo';

@@ -6,8 +6,10 @@ import {
 } from 'recharts';
 import { TrendingUp, ShoppingBag, Euro, Package, BarChart3, LineChart as LineChartIcon, PieChart as PieChartIcon, Trophy } from 'lucide-react';
 import { getValidSession } from '../services/authClient';
+import { apiUrl } from '../services/apiBase';
+import { DSStatCard } from '../components/design-system';
 
-const API = 'http://localhost:3000/api/productos';
+const API = apiUrl('/api/productos');
 
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'];
 
@@ -50,25 +52,6 @@ const SectionTitle = ({ icon: Icon, children }) => (
         </span>
         <h2 className="text-base font-semibold text-base-primary tracking-tight">{children}</h2>
     </div>
-);
-
-// ── Tarjeta de stat ────────────────────────────────────────────────────────
-const StatCard = ({ icon: Icon, label, value, sub, color, delay }) => (
-    <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay }}
-        className="surface-card dashboard-premium-card dashboard-premium-hover p-5 flex items-start gap-4"
-    >
-        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-            <Icon className="w-5 h-5 text-white" />
-        </div>
-        <div>
-            <p className="text-xs text-base-secondary mb-0.5">{label}</p>
-            <p className="text-2xl font-bold text-base-primary leading-tight">{value}</p>
-            {sub && <p className="text-xs text-faint mt-0.5">{sub}</p>}
-        </div>
-    </motion.div>
 );
 
 // ── Página principal ───────────────────────────────────────────────────────
@@ -152,10 +135,10 @@ const Dashboard = () => {
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <StatCard icon={ShoppingBag}  label="Ventas totales"   value={totalVentas}      sub="Todas las épocas"             color="bg-primary"           delay={0}    />
-                <StatCard icon={Euro}          label="Ingresos totales" value={`${ingresoTotal} €`} sub="Bruto acumulado"           color="bg-emerald-500"       delay={0.05} />
-                <StatCard icon={TrendingUp}    label="Ticket medio"     value={`${ticketMedio} €`} sub="Por venta"                  color="bg-blue-500"          delay={0.1}  />
-                <StatCard icon={Package}       label="Productos únicos" value={productosMasVendidos.length} sub="Con al menos 1 venta" color="bg-violet-500"   delay={0.15} />
+                <DSStatCard icon={ShoppingBag} label="Ventas totales" value={totalVentas} sub="Todas las épocas" intent="analytics" delay={0} />
+                <DSStatCard icon={Euro} label="Ingresos totales" value={`${ingresoTotal} €`} sub="Bruto acumulado" intent="analytics" delay={0.05} />
+                <DSStatCard icon={TrendingUp} label="Ticket medio" value={`${ticketMedio} €`} sub="Por venta" intent="analytics" delay={0.1} />
+                <DSStatCard icon={Package} label="Productos únicos" value={productosMasVendidos.length} sub="Con al menos 1 venta" intent="analytics" delay={0.15} />
             </div>
 
             {/* Gráficas fila 1 */}
@@ -166,7 +149,8 @@ const Dashboard = () => {
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.2 }}
-                    className="surface-card dashboard-premium-card dashboard-premium-hover p-6"
+                    className="ds-card ds-card-l2 ds-intent-analytics p-6"
+                    data-interactive="true"
                 >
                     <SectionTitle icon={LineChartIcon}>Ingresos por mes</SectionTitle>
                     <ResponsiveContainer width="100%" height={220}>
@@ -193,7 +177,8 @@ const Dashboard = () => {
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.25 }}
-                    className="surface-card dashboard-premium-card dashboard-premium-hover p-6"
+                    className="ds-card ds-card-l2 ds-intent-analytics p-6"
+                    data-interactive="true"
                 >
                     <SectionTitle icon={TrendingUp}>Ventas por mes</SectionTitle>
                     <ResponsiveContainer width="100%" height={220}>
@@ -216,7 +201,8 @@ const Dashboard = () => {
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.3 }}
-                    className="surface-card dashboard-premium-card dashboard-premium-hover p-7"
+                    className="ds-card ds-card-l2 ds-intent-analytics p-7"
+                    data-interactive="true"
                 >
                     <SectionTitle icon={PieChartIcon}>Distribución por producto</SectionTitle>
                     {productosMasVendidos.length === 0 ? (

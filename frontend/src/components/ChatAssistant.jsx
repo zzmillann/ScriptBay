@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, X, Send, Bot, User, Loader2 } from 'lucide-react';
+import { apiUrl } from '../services/apiBase';
 
 const ChatAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -12,7 +13,7 @@ const ChatAssistant = () => {
   const scrollRef = useRef(null);
   const sessionIdRef = useRef(`session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
 
-  const WEBHOOK_URL = 'http://localhost:3000/api/chatbot/enviar';
+  const WEBHOOK_URL = apiUrl('/api/chatbot/enviar');
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -65,7 +66,8 @@ const ChatAssistant = () => {
             initial={{ opacity: 0, y: 50, scale: 0.8, transformOrigin: 'bottom right' }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.8 }}
-            className="mb-4 w-[350px] sm:w-[400px] h-[500px] sm:h-[600px] flex flex-col glass-card overflow-hidden shadow-[0_20px_50px_rgba(255,26,26,0.25)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.8)]"
+            className="mb-4 w-[350px] sm:w-[400px] h-[500px] sm:h-[600px] flex flex-col ds-card ds-card-l2 ds-intent-service overflow-hidden"
+            data-interactive="true"
           >
             {/* Cabecera */}
             <div className="p-4 border-b border-zinc-200 dark:border-white/10 bg-linear-to-r from-primary to-accent flex items-center justify-between">

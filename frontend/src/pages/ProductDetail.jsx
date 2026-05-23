@@ -9,6 +9,7 @@ import { postPagarProducto } from '../services/stripeClient';
 import { postIniciarPagoPayPal } from '../services/paypalClient';
 import { postRegistrarCompraCrypto } from '../services/cryptoClient';
 import { getSession } from '../services/authClient';
+import { apiUrl } from '../services/apiBase';
 import { normalizeImageUrl } from '../utils/imageUrl';
 import { buildPurchaseExperience, formatEthPrice, formatEurPrice } from '../data/purchaseExperience';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
@@ -86,7 +87,7 @@ const ProductDetail = () => {
         }
 
         // 2. Si no es local, buscar en el backend (UUID)
-        const response = await fetch(`http://localhost:3000/api/productos/ObtenerProductoPorId/${id}`);
+        const response = await fetch(apiUrl(`/api/productos/ObtenerProductoPorId/${id}`));
         const data = await response.json();
 
         if (data.codigo === 0 && data.producto) {
