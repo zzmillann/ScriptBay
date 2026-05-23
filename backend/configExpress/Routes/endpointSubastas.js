@@ -15,6 +15,25 @@ const getAuthUser = async (req) => {
     return user;
 };
 
+const ensureSocialThread = async ({ contexto, contextoId, productoId = null, subastaId = null, compradorId, vendedorId }) => {
+    const { data, error } = await supabase
+        .from('social_threads')
+        .upsert({
+            contexto,
+            contexto_id: contextoId,
+            producto_id: productoId,
+            subasta_id: subastaId,
+            comprador_id: compradorId,
+            vendedor_id: vendedorId,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'contexto,contexto_id,comprador_id,vendedor_id' })
+        .select('*')
+        .single();
+
+    if (error) throw error;
+    return data;
+};
+
 // ── Helper: calcular fecha_fin según duración ─────────────────────────────────
 const calcularFechaFin = (duracion) => {
     const ahora = new Date();
@@ -203,6 +222,171 @@ objetoRouter.get('/ObtenerSubasta/:id', async (req, res) => {
 
     } catch (error) {
         console.log('ERROR en /ObtenerSubasta:', error);
+        res.status(200).send({ codigo: 1, mensaje: error.message });
+    }
+});
+
+objetoRouter.get('/ObtenerChatSubasta/:idSubasta', async (req, res) => {
+    try {
+        const user = await getAuthUser(req);
+        const { idSubasta } = req.params;
+        const { buyerId } = req.query;
+
+        const { data: subasta, error: subastaError } = await supabase
+            .from('subastas')
+            .select('id, producto_id, vendedor_id')
+            .eq('id', idSubasta)
+            .single();
+
+        if (subastaError || !subasta) throw new Error('Subasta no encontrada');
+
+        const isSeller = subasta.vendedor_id === user.id;
+        const compradorId = isSeller ? buyerId : user.id;
+
+        if (!compradorId) {
+            return res.status(200).send({
+                codigo: 0,
+                role: isSeller ? 'seller' : 'buyer',
+                needsBuyerSelection: isSeller,
+                thread: null,
+                peer: null,
+                messages: []
+            });
+        }
+
+        if (compradorId === subasta.vendedor_id) throw new Error('No puedes abrir un chat contigo mismo');
+
+        const thread = await ensureSocialThread({
+            contexto: 'subasta',
+            contextoId: subasta.id,
+            productoId: subasta.producto_id,
+            subastaId: subasta.id,
+            compradorId,
+            vendedorId: subasta.vendedor_id
+        });
+
+        const { data: messages, error: messageError } = await supabase
+            .from('social_messages')
+            .select('id, thread_id, sender_id, contenido, created_at, leido_at')
+            .eq('thread_id', thread.id)
+            .order('created_at', { ascending: true });
+
+        if (messageError) throw messageError;
+
+        const participantIds = [...new Set([compradorId, subasta.vendedor_id, ...(messages || []).map((message) => message.sender_id)])];
+        const { data: profiles } = await supabase
+            .from('perfiles')
+            .select('id, nombre, avatar_url')
+            .in('id', participantIds);
+
+        const profilesMap = Object.fromEntries((profiles || []).map((profile) => [profile.id, profile]));
+        const peerId = user.id === compradorId ? subasta.vendedor_id : compradorId;
+
+        res.status(200).send({
+            codigo: 0,
+            role: isSeller ? 'seller' : 'buyer',
+            needsBuyerSelection: false,
+            thread,
+            peer: peerId ? {
+                id: peerId,
+                nombre: profilesMap[peerId]?.nombre || 'Usuario',
+                avatar_url: profilesMap[peerId]?.avatar_url || null
+            } : null,
+            messages: (messages || []).map((message) => ({
+                ...message,
+                author: {
+                    id: message.sender_id,
+                    nombre: profilesMap[message.sender_id]?.nombre || 'Usuario',
+                    avatar_url: profilesMap[message.sender_id]?.avatar_url || null
+                }
+            }))
+        });
+    } catch (error) {
+        console.log('ERROR en /ObtenerChatSubasta:', error);
+        res.status(200).send({ codigo: 1, mensaje: error.message, messages: [] });
+    }
+});
+
+objetoRouter.post('/EnviarMensajeSubasta', async (req, res) => {
+    try {
+        const user = await getAuthUser(req);
+        const { subastaId, buyerId, contenido } = req.body;
+
+        if (!subastaId) throw new Error('Subasta requerida');
+
+        const messageText = String(contenido || '').trim();
+        if (messageText.length < 2) throw new Error('Escribe un mensaje valido');
+
+        const { data: subasta, error: subastaError } = await supabase
+            .from('subastas')
+            .select('id, producto_id, vendedor_id')
+            .eq('id', subastaId)
+            .single();
+
+        if (subastaError || !subasta) throw new Error('Subasta no encontrada');
+
+        const isSeller = subasta.vendedor_id === user.id;
+        const compradorId = isSeller ? buyerId : user.id;
+        if (!compradorId) throw new Error('No se pudo resolver el comprador del hilo');
+        if (compradorId === subasta.vendedor_id) throw new Error('No puedes enviarte mensajes a ti mismo');
+
+        const thread = await ensureSocialThread({
+            contexto: 'subasta',
+            contextoId: subasta.id,
+            productoId: subasta.producto_id,
+            subastaId: subasta.id,
+            compradorId,
+            vendedorId: subasta.vendedor_id
+        });
+
+        const { data: insertedMessage, error: insertError } = await supabase
+            .from('social_messages')
+            .insert({
+                thread_id: thread.id,
+                sender_id: user.id,
+                contenido: messageText
+            })
+            .select('id, thread_id, sender_id, contenido, created_at, leido_at')
+            .single();
+
+        if (insertError) throw insertError;
+
+        await supabase
+            .from('social_threads')
+            .update({ updated_at: new Date().toISOString() })
+            .eq('id', thread.id);
+
+        const recipientId = user.id === compradorId ? subasta.vendedor_id : compradorId;
+        if (recipientId && recipientId !== user.id) {
+            await crearNotificacion(recipientId, 'mensaje', {
+                contexto: 'subasta',
+                subastaId: subasta.id,
+                preview: messageText.slice(0, 120),
+                threadId: thread.id
+            });
+        }
+
+        const { data: profile } = await supabase
+            .from('perfiles')
+            .select('id, nombre, avatar_url')
+            .eq('id', user.id)
+            .single();
+
+        res.status(200).send({
+            codigo: 0,
+            mensaje: 'Mensaje enviado',
+            thread,
+            message: {
+                ...insertedMessage,
+                author: {
+                    id: user.id,
+                    nombre: profile?.nombre || 'Usuario',
+                    avatar_url: profile?.avatar_url || null
+                }
+            }
+        });
+    } catch (error) {
+        console.log('ERROR en /EnviarMensajeSubasta:', error);
         res.status(200).send({ codigo: 1, mensaje: error.message });
     }
 });

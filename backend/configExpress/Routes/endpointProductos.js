@@ -19,6 +19,56 @@ const multerMiddleware = multer({
 const bufferADataUrl = (file) =>
     `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
+const getAuthUser = async (req) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) throw new Error('No autorizado');
+
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error) throw error;
+    return user;
+};
+
+const buildReviewSummary = (reviews = []) => {
+    const total = reviews.length;
+    const sum = reviews.reduce((acc, review) => acc + Number(review.estrellas || 0), 0);
+    const average = total ? Number((sum / total).toFixed(1)) : 0;
+    const distribution = [5, 4, 3, 2, 1].map((value) => ({
+        stars: value,
+        count: reviews.filter((review) => Number(review.estrellas) === value).length
+    }));
+
+    return { average, total, distribution };
+};
+
+const mapRatingsByProduct = (reviews = []) => {
+    return reviews.reduce((acc, review) => {
+        const productId = review.producto_id;
+        if (!acc[productId]) acc[productId] = [];
+        acc[productId].push(review);
+        return acc;
+    }, {});
+};
+
+const ensureSocialThread = async ({ contexto, contextoId, productoId = null, subastaId = null, compradorId, vendedorId }) => {
+    const { data, error } = await supabase
+        .from('social_threads')
+        .upsert({
+            contexto,
+            contexto_id: contextoId,
+            producto_id: productoId,
+            subasta_id: subastaId,
+            comprador_id: compradorId,
+            vendedor_id: vendedorId,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'contexto,contexto_id,comprador_id,vendedor_id' })
+        .select('*')
+        .single();
+
+    if (error) throw error;
+    return data;
+};
+
 objetoRouter.post('/GuardarProducto',
     multerMiddleware.fields([{ name: 'imagen', maxCount: 1 }, { name: 'archivo', maxCount: 1 }]),
     async (req, res, next) => {
@@ -164,9 +214,22 @@ objetoRouter.get('/ObtenerProductoPorId/:id', async (req, res, next) => {
             .eq('id', producto.user_id)
             .single();
 
+        const { data: productReviews } = await supabase
+            .from('producto_reviews')
+            .select('estrellas')
+            .eq('producto_id', producto.id);
+
+        const ratingSummary = buildReviewSummary(productReviews || []);
+
         res.status(200).send({
             codigo: 0,
-            producto: { ...producto, perfiles: perfil }
+            producto: {
+                ...producto,
+                perfiles: perfil,
+                rating: ratingSummary.average,
+                reviews: ratingSummary.total,
+                rating_summary: ratingSummary
+            }
         });
 
     } catch (error) {
@@ -193,9 +256,34 @@ objetoRouter.get('/ObtenerProductos', async (req, res, next) => {
 
         if (error) throw error;
 
+        const productIds = (data || []).map((product) => product.id).filter(Boolean);
+        let ratingsMap = {};
+
+        if (productIds.length > 0) {
+            const { data: reviewRows } = await supabase
+                .from('producto_reviews')
+                .select('producto_id, estrellas')
+                .in('producto_id', productIds);
+
+            const groupedReviews = mapRatingsByProduct(reviewRows || []);
+            ratingsMap = Object.fromEntries(
+                Object.entries(groupedReviews).map(([productId, reviews]) => [productId, buildReviewSummary(reviews)])
+            );
+        }
+
+        const enrichedProducts = (data || []).map((product) => {
+            const ratingSummary = ratingsMap[product.id] || { average: 0, total: 0, distribution: [] };
+            return {
+                ...product,
+                rating: ratingSummary.average,
+                reviews: ratingSummary.total,
+                rating_summary: ratingSummary
+            };
+        });
+
         res.status(200).send({
             codigo: 0,
-            productos: data
+            productos: enrichedProducts
         });
 
     } catch (error) {
@@ -830,6 +918,66 @@ objetoRouter.get('/DescargarArchivo/:idProducto', async (req, res) => {
     }
 });
 
+// Descarga por id de compra: util para compras historicas sin producto_id enlazado.
+objetoRouter.get('/DescargarArchivoCompra/:idCompra', async (req, res) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token) throw new Error('No autorizado');
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError) throw authError;
+
+        const { idCompra } = req.params;
+
+        const { data: compra, error: compraError } = await supabase
+            .from('compras')
+            .select('id, user_id, titulo, producto_id')
+            .eq('id', idCompra)
+            .single();
+
+        if (compraError) throw compraError;
+        if (!compra) throw new Error('Compra no encontrada');
+        if (compra.user_id !== user.id) {
+            return res.status(403).send({ codigo: 2, mensaje: 'No tienes acceso a esta compra.' });
+        }
+
+        let producto = null;
+
+        if (compra.producto_id) {
+            const { data: p } = await supabase
+                .from('productos')
+                .select('id, titulo, archivo')
+                .eq('id', compra.producto_id)
+                .single();
+            producto = p || null;
+        }
+
+        if (!producto && compra.titulo) {
+            const { data: pByTitle } = await supabase
+                .from('productos')
+                .select('id, titulo, archivo')
+                .eq('titulo', compra.titulo)
+                .limit(1);
+            producto = (pByTitle || [])[0] || null;
+        }
+
+        if (!producto?.archivo) {
+            return res.status(200).send({ codigo: 1, mensaje: 'No se encontró archivo descargable para esta compra.' });
+        }
+
+        res.status(200).send({
+            codigo: 0,
+            titulo: producto.titulo || compra.titulo || 'producto',
+            archivo: producto.archivo,
+        });
+
+    } catch (error) {
+        console.log('ERROR en /DescargarArchivoCompra:', error);
+        res.status(200).send({ codigo: 1, mensaje: error.message });
+    }
+});
+
 objetoRouter.get('/MisCompras', async (req, res, next) => {
     try {
         const authHeader = req.headers['authorization'];
@@ -842,7 +990,7 @@ objetoRouter.get('/MisCompras', async (req, res, next) => {
         let compras = [];
         const { data: comprasJoin, error: joinError } = await supabase
             .from('compras')
-            .select('*, productos(id, imagen, tipo, categoria)')
+            .select('*, productos(id, titulo, imagen, tipo, categoria)')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
 
@@ -862,7 +1010,7 @@ objetoRouter.get('/MisCompras', async (req, res, next) => {
             if (ids.length > 0) {
                 const { data: prods } = await supabase
                     .from('productos')
-                    .select('id, imagen, tipo, categoria')
+                    .select('id, titulo, imagen, tipo, categoria')
                     .in('id', ids);
                 (prods || []).forEach(p => { productosMap[p.id] = p; });
             }
@@ -870,6 +1018,40 @@ objetoRouter.get('/MisCompras', async (req, res, next) => {
                 ...c,
                 productos: productosMap[c.producto_id] || null
             }));
+        }
+
+        // Recuperacion para compras historicas sin producto_id:
+        // intentamos enlazar por titulo para habilitar acceso e imagen en el frontend.
+        const unresolvedTitles = [...new Set(
+            (compras || [])
+                .filter((c) => !c.producto_id && c.titulo)
+                .map((c) => String(c.titulo).trim())
+                .filter(Boolean)
+        )];
+
+        if (unresolvedTitles.length > 0) {
+            const { data: productosByTitle } = await supabase
+                .from('productos')
+                .select('id, titulo, imagen, tipo, categoria')
+                .in('titulo', unresolvedTitles);
+
+            const titleMap = {};
+            (productosByTitle || []).forEach((p) => {
+                const key = String(p.titulo || '').trim().toLowerCase();
+                if (key && !titleMap[key]) titleMap[key] = p;
+            });
+
+            compras = (compras || []).map((c) => {
+                if (c.producto_id) return c;
+                const key = String(c.titulo || '').trim().toLowerCase();
+                const match = key ? titleMap[key] : null;
+                if (!match) return c;
+                return {
+                    ...c,
+                    producto_id: match.id,
+                    productos: c.productos || match
+                };
+            });
         }
 
         res.status(200).send({ codigo: 0, compras });
@@ -1008,6 +1190,290 @@ objetoRouter.get('/Recomendados', async (req, res) => {
             (productosComprados || []).forEach(p => {
                 if (p.categoria && !razonPorCategoria[p.categoria]) {
                     razonPorCategoria[p.categoria] = p.titulo;
+                }
+            });
+
+            objetoRouter.get('/ObtenerReviewsProducto/:idProducto', async (req, res) => {
+                try {
+                    const { idProducto } = req.params;
+                    const authHeader = req.headers['authorization'];
+                    const token = authHeader && authHeader.split(' ')[1];
+
+                    let viewer = null;
+                    if (token) {
+                        const { data: { user } } = await supabase.auth.getUser(token);
+                        viewer = user || null;
+                    }
+
+                    const { data: reviews, error } = await supabase
+                        .from('producto_reviews')
+                        .select('id, producto_id, user_id, compra_id, estrellas, comentario, created_at, updated_at')
+                        .eq('producto_id', idProducto)
+                        .order('created_at', { ascending: false });
+
+                    if (error) throw error;
+
+                    const reviewerIds = [...new Set((reviews || []).map((review) => review.user_id).filter(Boolean))];
+                    let profilesMap = {};
+                    if (reviewerIds.length > 0) {
+                        const { data: profiles } = await supabase
+                            .from('perfiles')
+                            .select('id, nombre, avatar_url')
+                            .in('id', reviewerIds);
+
+                        profilesMap = Object.fromEntries((profiles || []).map((profile) => [profile.id, profile]));
+                    }
+
+                    const summary = buildReviewSummary(reviews || []);
+                    const viewerReview = viewer ? (reviews || []).find((review) => review.user_id === viewer.id) : null;
+                    let canReview = false;
+
+                    if (viewer) {
+                        const { data: verifiedPurchase } = await supabase
+                            .from('compras')
+                            .select('id')
+                            .eq('user_id', viewer.id)
+                            .eq('producto_id', idProducto)
+                            .limit(1)
+                            .maybeSingle();
+                        canReview = Boolean(verifiedPurchase);
+                    }
+
+                    res.status(200).send({
+                        codigo: 0,
+                        summary,
+                        canReview,
+                        viewerReview: viewerReview ? {
+                            ...viewerReview,
+                            author: {
+                                id: viewerReview.user_id,
+                                nombre: profilesMap[viewerReview.user_id]?.nombre || 'Tu cuenta',
+                                avatar_url: profilesMap[viewerReview.user_id]?.avatar_url || null
+                            }
+                        } : null,
+                        reviews: (reviews || []).map((review) => ({
+                            ...review,
+                            verified: Boolean(review.compra_id),
+                            author: {
+                                id: review.user_id,
+                                nombre: profilesMap[review.user_id]?.nombre || 'Usuario verificado',
+                                avatar_url: profilesMap[review.user_id]?.avatar_url || null
+                            }
+                        }))
+                    });
+                } catch (error) {
+                    console.log(error);
+                    res.status(200).send({ codigo: 1, mensaje: error.message, summary: { average: 0, total: 0, distribution: [] }, reviews: [] });
+                }
+            });
+
+            objetoRouter.post('/CrearReviewProducto', async (req, res) => {
+                try {
+                    const user = await getAuthUser(req);
+                    const { productoId, estrellas, comentario } = req.body;
+
+                    if (!productoId) throw new Error('Producto requerido');
+
+                    const score = Number(estrellas);
+                    if (!Number.isInteger(score) || score < 1 || score > 5) {
+                        throw new Error('La valoracion debe estar entre 1 y 5 estrellas');
+                    }
+
+                    const text = String(comentario || '').trim();
+                    if (text.length < 12) throw new Error('Escribe un comentario con algo mas de contexto');
+
+                    const { data: verifiedPurchase, error: purchaseError } = await supabase
+                        .from('compras')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .eq('producto_id', productoId)
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (purchaseError) throw purchaseError;
+                    if (!verifiedPurchase) throw new Error('Solo puedes reseñar productos que hayas comprado');
+
+                    const { error } = await supabase
+                        .from('producto_reviews')
+                        .upsert({
+                            producto_id: productoId,
+                            user_id: user.id,
+                            compra_id: verifiedPurchase.id,
+                            estrellas: score,
+                            comentario: text,
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'producto_id,user_id' });
+
+                    if (error) throw error;
+
+                    res.status(200).send({ codigo: 0, mensaje: 'Reseña guardada correctamente' });
+                } catch (error) {
+                    console.log(error);
+                    res.status(200).send({ codigo: 1, mensaje: error.message });
+                }
+            });
+
+            objetoRouter.get('/ObtenerChatProducto/:idProducto', async (req, res) => {
+                try {
+                    const user = await getAuthUser(req);
+                    const { idProducto } = req.params;
+                    const { buyerId } = req.query;
+
+                    const { data: producto, error: productError } = await supabase
+                        .from('productos')
+                        .select('id, titulo, user_id')
+                        .eq('id', idProducto)
+                        .single();
+
+                    if (productError || !producto) throw new Error('Producto no encontrado');
+
+                    const isSeller = producto.user_id === user.id;
+                    const compradorId = isSeller ? buyerId : user.id;
+                    if (!compradorId) {
+                        return res.status(200).send({
+                            codigo: 0,
+                            role: isSeller ? 'seller' : 'buyer',
+                            needsBuyerSelection: isSeller,
+                            thread: null,
+                            peer: null,
+                            messages: []
+                        });
+                    }
+
+                    if (compradorId === producto.user_id) throw new Error('No puedes abrir un chat contigo mismo');
+
+                    const thread = await ensureSocialThread({
+                        contexto: 'producto',
+                        contextoId: producto.id,
+                        productoId: producto.id,
+                        compradorId,
+                        vendedorId: producto.user_id
+                    });
+
+                    const { data: messages, error: messageError } = await supabase
+                        .from('social_messages')
+                        .select('id, thread_id, sender_id, contenido, created_at, leido_at')
+                        .eq('thread_id', thread.id)
+                        .order('created_at', { ascending: true });
+
+                    if (messageError) throw messageError;
+
+                    const participantIds = [...new Set([compradorId, producto.user_id, ...(messages || []).map((message) => message.sender_id)])];
+                    const { data: profiles } = await supabase
+                        .from('perfiles')
+                        .select('id, nombre, avatar_url')
+                        .in('id', participantIds);
+
+                    const profilesMap = Object.fromEntries((profiles || []).map((profile) => [profile.id, profile]));
+                    const peerId = user.id === compradorId ? producto.user_id : compradorId;
+
+                    res.status(200).send({
+                        codigo: 0,
+                        role: isSeller ? 'seller' : 'buyer',
+                        needsBuyerSelection: false,
+                        thread,
+                        peer: peerId ? {
+                            id: peerId,
+                            nombre: profilesMap[peerId]?.nombre || 'Usuario',
+                            avatar_url: profilesMap[peerId]?.avatar_url || null
+                        } : null,
+                        messages: (messages || []).map((message) => ({
+                            ...message,
+                            author: {
+                                id: message.sender_id,
+                                nombre: profilesMap[message.sender_id]?.nombre || 'Usuario',
+                                avatar_url: profilesMap[message.sender_id]?.avatar_url || null
+                            }
+                        }))
+                    });
+                } catch (error) {
+                    console.log(error);
+                    res.status(200).send({ codigo: 1, mensaje: error.message, messages: [] });
+                }
+            });
+
+            objetoRouter.post('/EnviarMensajeProducto', async (req, res) => {
+                try {
+                    const user = await getAuthUser(req);
+                    const { productoId, buyerId, contenido } = req.body;
+
+                    if (!productoId) throw new Error('Producto requerido');
+
+                    const messageText = String(contenido || '').trim();
+                    if (messageText.length < 2) throw new Error('Escribe un mensaje valido');
+
+                    const { data: producto, error: productError } = await supabase
+                        .from('productos')
+                        .select('id, titulo, user_id')
+                        .eq('id', productoId)
+                        .single();
+
+                    if (productError || !producto) throw new Error('Producto no encontrado');
+
+                    const isSeller = producto.user_id === user.id;
+                    const compradorId = isSeller ? buyerId : user.id;
+                    if (!compradorId) throw new Error('No se pudo resolver el comprador del hilo');
+                    if (compradorId === producto.user_id) throw new Error('No puedes enviarte mensajes a ti mismo');
+
+                    const thread = await ensureSocialThread({
+                        contexto: 'producto',
+                        contextoId: producto.id,
+                        productoId: producto.id,
+                        compradorId,
+                        vendedorId: producto.user_id
+                    });
+
+                    const { data: insertedMessage, error: insertError } = await supabase
+                        .from('social_messages')
+                        .insert({
+                            thread_id: thread.id,
+                            sender_id: user.id,
+                            contenido: messageText
+                        })
+                        .select('id, thread_id, sender_id, contenido, created_at, leido_at')
+                        .single();
+
+                    if (insertError) throw insertError;
+
+                    await supabase
+                        .from('social_threads')
+                        .update({ updated_at: new Date().toISOString() })
+                        .eq('id', thread.id);
+
+                    const recipientId = user.id === compradorId ? producto.user_id : compradorId;
+                    if (recipientId && recipientId !== user.id) {
+                        await crearNotificacion(recipientId, 'mensaje', {
+                            contexto: 'producto',
+                            productoId: producto.id,
+                            titulo: producto.titulo,
+                            preview: messageText.slice(0, 120),
+                            threadId: thread.id
+                        });
+                    }
+
+                    const { data: profile } = await supabase
+                        .from('perfiles')
+                        .select('id, nombre, avatar_url')
+                        .eq('id', user.id)
+                        .single();
+
+                    res.status(200).send({
+                        codigo: 0,
+                        mensaje: 'Mensaje enviado',
+                        thread,
+                        message: {
+                            ...insertedMessage,
+                            author: {
+                                id: user.id,
+                                nombre: profile?.nombre || 'Usuario',
+                                avatar_url: profile?.avatar_url || null
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.log(error);
+                    res.status(200).send({ codigo: 1, mensaje: error.message });
                 }
             });
         }
