@@ -91,11 +91,11 @@ export default {
             });
 
             const datos = await respuesta.json();
-            console.log('Respuesta de Mailjet:', JSON.stringify(datos));
+            console.log('[Bienvenida] Respuesta Mailjet HTTP:', respuesta.status, JSON.stringify(datos));
 
             // Igual que en el proyecto de clase: comprobamos el campo Status del primer mensaje
-            if (datos.Messages[0].Status !== 'success') {
-                throw new Error(`Mailjet devolvio estado: ${datos.Messages[0].Status}`);
+            if (!datos.Messages || datos.Messages[0].Status !== 'success') {
+                throw new Error(`Mailjet error: HTTP ${respuesta.status} | ${JSON.stringify(datos.Messages?.[0] || datos)}`);
             }
 
             return true;
@@ -163,15 +163,17 @@ export default {
                 body: JSON.stringify(body)
             });
             const datos = await respuesta.json();
-            console.log('[Factura] Respuesta Mailjet:', JSON.stringify(datos));
-            if (datos.Messages[0].Status !== 'success') throw new Error(`Mailjet devolvio estado: ${datos.Messages[0].Status}`);
+            console.log('[Factura] Respuesta Mailjet HTTP:', respuesta.status, JSON.stringify(datos));
+            if (!datos.Messages || datos.Messages[0].Status !== 'success') {
+                throw new Error(`Mailjet error: HTTP ${respuesta.status} | ${JSON.stringify(datos.Messages?.[0] || datos)}`);
+            }
 
             console.log('[Factura] Email con PDF enviado a:', emailDestino, '| Factura:', numFactura);
             return true;
 
         } catch (error) {
-            console.log('ERROR en mailjetService.enviarFactura:', error);
-            return false;
+            console.error('ERROR en mailjetService.enviarFactura:', error.message);
+            throw error; // re-lanzamos para que el .catch() externo lo vea
         }
     }
 
