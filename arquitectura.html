@@ -32,31 +32,49 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 5px;
       border-radius: 14px;
-      padding: 14px 20px;
+      padding: 12px 16px;
       text-align: center;
       position: relative;
     }
-    .node .icon { font-size: 30px; line-height: 1; }
-    .node .label { font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }
+    .node .icon  { font-size: 28px; line-height: 1; }
+    .node .label { font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }
     .node .sub   { font-size: 10px; color: #999; margin-top: 2px; }
 
-    .node-react     { background: #0e1a2b; border: 2px solid #38bdf8; width: 150px; }
-    .node-gateway   { background: #12102a; border: 2px solid #7c3aed; width: 340px; }
-    .node-micro     { background: #111827; border: 2px solid #4ade80; width: 130px; }
-    .node-kafka     { background: #1a1000; border: 2px solid #facc15; width: 185px; }
-    .node-redis     { background: #1a0000; border: 2px solid #f87171; width: 185px; }
-    .node-mongo     { background: #001a0a; border: 2px solid #4ade80; width: 185px; }
-    .node-supabase  { background: #001526; border: 2px solid #38bdf8; width: 185px; }
+    .node-frontend  { background: #0e1a2b; border: 2px solid #38bdf8; width: 220px; }
+    .node-backend   { background: #12102a; border: 2px solid #7c3aed; width: 540px; }
+    .node-supabase  { background: #001526; border: 2px solid #38bdf8; width: 160px; }
+    .node-blockchain{ background: #0d1a0d; border: 2px solid #4ade80; width: 160px; }
+    .node-stripe    { background: #0a1a10; border: 2px solid #22c55e; width: 150px; }
+    .node-paypal    { background: #001a26; border: 2px solid #38bdf8; width: 130px; }
+    .node-mailjet   { background: #1a0d00; border: 2px solid #fb923c; width: 140px; }
+    .node-n8n       { background: #1a001a; border: 2px solid #e879f9; width: 160px; }
+
+    /* Nodo interior del backend (rutas / servicios) */
+    .node-inner {
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 10px;
+      color: #ccc;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      text-align: left;
+    }
+    .node-inner-routes  { background: #1e1640; border: 1px solid #7c3aed; }
+    .node-inner-svcs    { background: #0f1f0f; border: 1px solid #4ade80; }
+    .node-inner .title  { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2px; }
+    .node-inner .item   { font-size: 9px; color: #aaa; }
 
     /* ── Layout ─────────────────────────── */
     .row {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 16px;
+      gap: 14px;
     }
+    .row-top { align-items: flex-start; }
 
     /* ── Flechas ─────────────────────────── */
     .arrow-down {
@@ -68,25 +86,9 @@
       gap: 2px;
       margin: 4px 0;
     }
-    .arrow-down .line { width: 2px; height: 28px; background: #444; }
+    .arrow-down .line { width: 2px; height: 24px; background: #444; }
     .arrow-down .tip  { font-size: 16px; color: #666; line-height: 1; }
-
-    /* Flecha con texto al lado */
     .arrow-label { color: #777; font-size: 10px; font-style: italic; }
-
-    /* ── Línea horizontal de separación ─── */
-    .hline {
-      width: 560px;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, #4ade80 20%, #4ade80 80%, transparent);
-      margin: 6px 0;
-    }
-    .hline-yellow {
-      background: linear-gradient(90deg, transparent, #facc15 20%, #facc15 80%, transparent);
-    }
-    .hline-blue {
-      background: linear-gradient(90deg, transparent, #38bdf8 20%, #38bdf8 80%, transparent);
-    }
 
     /* ── Sección con título ──────────────── */
     .section-title {
@@ -94,8 +96,8 @@
       text-transform: uppercase;
       letter-spacing: 2px;
       color: #555;
-      margin-top: 8px;
-      margin-bottom: 2px;
+      margin-top: 10px;
+      margin-bottom: 3px;
     }
 
     /* ── Badge de tecnología ─────────────── */
@@ -104,71 +106,66 @@
       font-size: 9px;
       padding: 2px 7px;
       border-radius: 20px;
-      margin-top: 4px;
+      margin-top: 3px;
     }
     .badge-blue   { background: #0c2a42; color: #38bdf8; border: 1px solid #38bdf8; }
     .badge-purple { background: #1a0d38; color: #a78bfa; border: 1px solid #7c3aed; }
     .badge-green  { background: #041a0c; color: #4ade80; border: 1px solid #4ade80; }
-    .badge-yellow { background: #1a1000; color: #facc15; border: 1px solid #facc15; }
-    .badge-red    { background: #1a0000; color: #f87171; border: 1px solid #f87171; }
+    .badge-orange { background: #1a0d00; color: #fb923c; border: 1px solid #fb923c; }
+    .badge-pink   { background: #1a001a; color: #e879f9; border: 1px solid #e879f9; }
+    .badge-emerald{ background: #001a0e; color: #34d399; border: 1px solid #34d399; }
 
-    /* ── Broker row connector ────────────── */
-    .broker-connector {
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      gap: 8px;
+    /* ── Línea horizontal de separación ─── */
+    .hline {
+      height: 2px;
+      margin: 6px 0;
     }
-    .v-line {
-      width: 2px;
-      background: #333;
-      align-self: stretch;
-      margin: 0 4px;
-    }
+    .hline-blue  { background: linear-gradient(90deg, transparent, #38bdf8 20%, #38bdf8 80%, transparent); }
+    .hline-green { background: linear-gradient(90deg, transparent, #4ade80 20%, #4ade80 80%, transparent); }
+    .hline-purple{ background: linear-gradient(90deg, transparent, #7c3aed 20%, #7c3aed 80%, transparent); }
 
-    /* ── Fan arrows (1 → 4) ──────────────── */
+    /* ── Fan (1 → N) ──────────────── */
     .fan-container {
       display: flex;
       flex-direction: column;
       align-items: center;
     }
-    .fan-top {
-      width: 2px;
-      height: 18px;
-      background: #444;
-    }
-    .fan-h-bar {
-      width: 476px;
-      height: 2px;
-      background: #444;
-    }
-    .fan-legs {
+    .fan-top  { width: 2px; height: 16px; background: #444; }
+    .fan-h-bar{ height: 2px; background: #444; }
+    .fan-legs { display: flex; justify-content: space-around; }
+    .fan-leg  { display: flex; flex-direction: column; align-items: center; }
+    .fan-leg-line { width: 2px; height: 16px; background: #444; }
+    .fan-leg-tip  { font-size: 14px; color: #666; line-height: 1; }
+
+    /* ── Reverse fan (N → 1) ─────────────── */
+    .rfan-leg-line { width: 2px; height: 16px; background: #555; }
+
+    /* ── Layout lateral blockchain ───────── */
+    .main-plus-chain {
       display: flex;
-      width: 476px;
-      justify-content: space-around;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0;
     }
-    .fan-leg {
+    .chain-connector {
       display: flex;
       flex-direction: column;
       align-items: center;
+      padding-top: 28px;
     }
-    .fan-leg-line {
-      width: 2px;
-      height: 18px;
-      background: #444;
+    .h-line-right {
+      height: 2px;
+      width: 32px;
+      background: #4ade80;
+      margin-top: 34px;
     }
-    .fan-leg-tip { font-size: 14px; color: #666; line-height: 1; }
-
-    /* ── Reverse fan (4 → 1) ─────────────── */
-    .rfan-legs {
-      display: flex;
-      width: 476px;
-      justify-content: space-around;
-    }
-    .rfan-top {
-      width: 2px;
-      height: 18px;
-      background: #444;
+    .chain-arrow-label {
+      font-size: 9px;
+      color: #4ade80;
+      font-style: italic;
+      writing-mode: horizontal-tb;
+      margin-top: 4px;
+      white-space: nowrap;
     }
   </style>
 </head>
@@ -176,141 +173,176 @@
 
   <h1>⛓ ScriptBay — Arquitectura</h1>
 
-  <!-- ── FRONTEND ───────────────────────────────── -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <!--  CAPA DE PRESENTACIÓN                             -->
+  <!-- ══════════════════════════════════════════════════ -->
   <p class="section-title">Capa de Presentación</p>
   <div class="row">
-    <div class="node node-react">
+    <div class="node node-frontend">
       <span class="icon">⚛️</span>
       <span class="label">FRONTEND</span>
-      <span class="sub">React + Vite</span>
-      <span class="badge badge-blue">cliente(s)</span>
-    </div>
-  </div>
-
-  <!-- flecha ↓ -->
-  <div class="arrow-down">
-    <div class="line"></div>
-    <div class="tip">▼</div>
-    <span class="arrow-label">HTTP / REST</span>
-  </div>
-
-  <!-- ── GATEWAY ────────────────────────────────── -->
-  <p class="section-title">Capa de Gateway</p>
-  <div class="row">
-    <div class="node node-gateway">
-      <span class="icon">🔀</span>
-      <span class="label">GATEWAY</span>
-      <span class="sub">Node.js + Express</span>
-      <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;justify-content:center;">
-        <span class="badge badge-purple">⚖️ Balanceador de carga</span>
-        <span class="badge badge-purple">🔁 Multiplexión p2m</span>
+      <span class="sub">React 19 + Vite 7</span>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin-top:4px;">
+        <span class="badge badge-blue">React Router 7</span>
+        <span class="badge badge-purple">Framer Motion</span>
+        <span class="badge badge-blue">TailwindCSS 4</span>
+        <span class="badge badge-green">wagmi + viem</span>
+        <span class="badge badge-purple">RainbowKit</span>
+        <span class="badge badge-blue">TanStack Query</span>
       </div>
     </div>
   </div>
 
-  <!-- fan 1→4 -->
-  <div class="fan-container">
-    <div class="fan-top"></div>
-    <div class="fan-h-bar"></div>
-    <div class="fan-legs">
-      <div class="fan-leg"><div class="fan-leg-line"></div><div class="fan-leg-tip">▼</div></div>
-      <div class="fan-leg"><div class="fan-leg-line"></div><div class="fan-leg-tip">▼</div></div>
-      <div class="fan-leg"><div class="fan-leg-line"></div><div class="fan-leg-tip">▼</div></div>
-      <div class="fan-leg"><div class="fan-leg-line"></div><div class="fan-leg-tip">▼</div></div>
-    </div>
-  </div>
-
-  <!-- ── MICROSERVICIOS ─────────────────────────── -->
-  <p class="section-title">Capa de Microservicios</p>
-  <div class="row" style="gap:12px;">
-    <div class="node node-micro">
-      <span class="icon">💳</span>
-      <span class="label">Pago</span>
-      <span class="sub">microserv1</span>
-      <span class="badge badge-green">Node.js</span>
-    </div>
-    <div class="node node-micro">
-      <span class="icon">🔐</span>
-      <span class="label">Autenticación</span>
-      <span class="sub">microserv2</span>
-      <span class="badge badge-green">Node.js</span>
-    </div>
-    <div class="node node-micro">
-      <span class="icon">🎯</span>
-      <span class="label">Sesión</span>
-      <span class="sub">microserv3</span>
-      <span class="badge badge-green">Node.js</span>
-    </div>
-    <div class="node node-micro">
-      <span class="icon">📦</span>
-      <span class="label">Inventario</span>
-      <span class="sub">microserv4</span>
-      <span class="badge badge-green">Node.js</span>
-    </div>
-  </div>
-
-  <!-- reverse fan 4→1 -->
-  <div class="fan-container">
-    <div class="fan-legs" style="flex-direction:row;width:476px;justify-content:space-around;display:flex;">
-      <div class="fan-leg"><div class="fan-leg-line" style="background:#555"></div></div>
-      <div class="fan-leg"><div class="fan-leg-line" style="background:#555"></div></div>
-      <div class="fan-leg"><div class="fan-leg-line" style="background:#555"></div></div>
-      <div class="fan-leg"><div class="fan-leg-line" style="background:#555"></div></div>
-    </div>
-    <div class="fan-h-bar" style="background:#555"></div>
-    <div class="rfan-top" style="background:#555"></div>
-  </div>
-
-  <!-- ── INTERCONEXIÓN ──────────────────────────── -->
-  <p class="section-title">Capa de Mensajería</p>
-  <div class="hline hline-yellow"></div>
-  <div class="row" style="gap:12px; margin: 8px 0;">
-    <div class="node node-kafka">
-      <span class="icon">📨</span>
-      <span class="label">Kafka / RabbitMQ</span>
-      <span class="sub">Operaciones sin prisa</span>
-      <span class="badge badge-yellow">message broker</span>
-    </div>
-    <div style="color:#555;font-size:22px;">⟷</div>
-    <div class="node node-redis">
-      <span class="icon">⚡</span>
-      <span class="label">Redis</span>
-      <span class="sub">Operaciones tiempo real</span>
-      <span class="badge badge-red">in-memory store</span>
-    </div>
-  </div>
-  <div class="hline hline-yellow"></div>
-
   <!-- flecha ↓ -->
   <div class="arrow-down">
     <div class="line"></div>
     <div class="tip">▼</div>
-    <span class="arrow-label">persistencia</span>
+    <span class="arrow-label">HTTP / REST · JWT Bearer</span>
   </div>
 
-  <!-- ── PERSISTENCIA ───────────────────────────── -->
-  <p class="section-title">Capa de Persistencia</p>
-  <div class="hline hline-blue"></div>
-  <div class="row" style="gap:12px; margin: 8px 0;">
-    <div class="node node-mongo">
-      <span class="icon">🍃</span>
-      <span class="label">MongoDB</span>
-      <span class="sub">Base de datos NoSQL</span>
-      <span class="badge badge-green">documentos</span>
+  <!-- ══════════════════════════════════════════════════ -->
+  <!--  CAPA DE BACKEND (monolito por capas)             -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <p class="section-title">Capa de Backend · Monolito por capas</p>
+  <div class="row">
+    <div class="node node-backend">
+      <span class="icon">🖥️</span>
+      <span class="label">BACKEND</span>
+      <span class="sub">Node.js · Express 5 · ES Modules</span>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;justify-content:center;">
+
+        <!-- Routes -->
+        <div class="node-inner node-inner-routes">
+          <span class="title" style="color:#a78bfa;">📡 Routes</span>
+          <span class="item">👤 endpointCliente</span>
+          <span class="item">📦 endpointProductos</span>
+          <span class="item">🏷️ endpointSubastas</span>
+          <span class="item">💬 endpointChatbot</span>
+          <span class="item">🔔 endpointNotificaciones</span>
+        </div>
+
+        <!-- Services -->
+        <div class="node-inner node-inner-svcs">
+          <span class="title" style="color:#4ade80;">⚙️ Services</span>
+          <span class="item">💳 stripeService</span>
+          <span class="item">🅿️ paypalService</span>
+          <span class="item">📧 mailjetService</span>
+          <span class="item">📄 facturaService (pdfkit)</span>
+          <span class="item">🛡️ scanService (n8n)</span>
+          <span class="item">⛓ blockchainService (viem)</span>
+          <span class="item">🔔 notificacionHelper</span>
+        </div>
+
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin-top:8px;">
+        <span class="badge badge-purple">multer · subida archivos</span>
+        <span class="badge badge-blue">JWT + refresh token</span>
+        <span class="badge badge-green">CORS · pipeline middlewares</span>
+      </div>
     </div>
-    <div style="color:#555;font-size:22px;">⟷</div>
+  </div>
+
+  <!-- fan 1 → 4 servicios externos + blockchain -->
+  <div class="fan-container">
+    <div class="fan-top"></div>
+    <div class="fan-h-bar" style="width:640px;"></div>
+    <div class="fan-legs" style="width:640px;">
+      <div class="fan-leg"><div class="fan-leg-line"></div><div class="fan-leg-tip">▼</div></div>
+      <div class="fan-leg"><div class="fan-leg-line"></div><div class="fan-leg-tip">▼</div></div>
+      <div class="fan-leg"><div class="fan-leg-line"></div><div class="fan-leg-tip">▼</div></div>
+      <div class="fan-leg"><div class="fan-leg-line"></div><div class="fan-leg-tip">▼</div></div>
+      <div class="fan-leg"><div class="fan-leg-line"></div><div class="fan-leg-tip">▼</div></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!--  SERVICIOS EXTERNOS                               -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <p class="section-title">Servicios externos e infraestructura</p>
+  <div class="hline hline-blue" style="width:660px;"></div>
+  <div class="row row-top" style="gap:10px; margin: 10px 0;">
+
+    <!-- Supabase -->
     <div class="node node-supabase">
       <span class="icon">🐘</span>
       <span class="label">Supabase</span>
-      <span class="sub">Base de datos SQL</span>
-      <span class="badge badge-blue">relacional</span>
+      <span class="sub">PostgreSQL gestionado</span>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:4px;">
+        <span class="badge badge-blue">PostgreSQL</span>
+        <span class="badge badge-blue">Auth + JWT</span>
+        <span class="badge badge-blue">Storage</span>
+      </div>
     </div>
+
+    <!-- Blockchain -->
+    <div class="node node-blockchain">
+      <span class="icon">⛓</span>
+      <span class="label">Blockchain</span>
+      <span class="sub">Ethereum Sepolia</span>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:4px;">
+        <span class="badge badge-green">ERC-721 NFT</span>
+        <span class="badge badge-green">Solidity / Foundry</span>
+        <span class="badge badge-green">OpenZeppelin</span>
+      </div>
+    </div>
+
+    <!-- Stripe -->
+    <div class="node node-stripe">
+      <span class="icon">💳</span>
+      <span class="label">Stripe</span>
+      <span class="sub">Pagos con tarjeta</span>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:4px;">
+        <span class="badge badge-emerald">Customer · Card</span>
+        <span class="badge badge-emerald">PaymentIntent</span>
+      </div>
+    </div>
+
+    <!-- PayPal -->
+    <div class="node node-paypal">
+      <span class="icon">🅿️</span>
+      <span class="label">PayPal</span>
+      <span class="sub">Pagos alternativos</span>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:4px;">
+        <span class="badge badge-blue">Checkout Orders</span>
+        <span class="badge badge-blue">Sandbox</span>
+      </div>
+    </div>
+
+    <!-- Mailjet -->
+    <div class="node node-mailjet">
+      <span class="icon">📧</span>
+      <span class="label">Mailjet</span>
+      <span class="sub">Correos transaccionales</span>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:4px;">
+        <span class="badge badge-orange">Bienvenida</span>
+        <span class="badge badge-orange">Factura PDF</span>
+      </div>
+    </div>
+
+    <!-- n8n + Gemini -->
+    <div class="node node-n8n">
+      <span class="icon">🤖</span>
+      <span class="label">n8n + Gemini</span>
+      <span class="sub">IA y automatización</span>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:4px;">
+        <span class="badge badge-pink">Escaneo archivos</span>
+        <span class="badge badge-pink">Chatbot soporte</span>
+      </div>
+    </div>
+
   </div>
-  <div class="hline hline-blue"></div>
+  <div class="hline hline-blue" style="width:660px;"></div>
+
+  <!-- Nota wallet frontend → blockchain -->
+  <div style="margin-top:16px; padding: 10px 20px; border: 1px dashed #4ade8055; border-radius:10px; font-size:10px; color:#777; text-align:center; max-width:620px;">
+    ⚛️ <strong style="color:#4ade80;">Frontend</strong> también conecta directamente con la blockchain vía
+    <strong style="color:#38bdf8;">wagmi / viem</strong> (lectura de NFTs y galería) ·
+    <strong style="color:#a78bfa;">RainbowKit</strong> gestiona la conexión con MetaMask
+  </div>
 
   <!-- pie -->
-  <p style="margin-top:40px; font-size:10px; color:#444; letter-spacing:1px;">
-    © 2026 ScriptBay · TFG · Arquitectura de microservicios
+  <p style="margin-top:36px; font-size:10px; color:#444; letter-spacing:1px;">
+    © 2026 ScriptBay · TFG · Arquitectura monolito por capas
   </p>
 
 </body>
