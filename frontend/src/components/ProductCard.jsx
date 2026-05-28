@@ -3,12 +3,21 @@ import { ShoppingCart, Star, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useWishlist } from '../context/WishlistContext';
+import { useCart } from '../context/CartContext';
 
 const ProductCard = ({ id, title, category, price, rating, reviews, image }) => {
     const fallbackImage = useMemo(() => `https://picsum.photos/seed/card-${id}/640/420`, [id]);
     const [imgSrc, setImgSrc] = useState(image || fallbackImage);
     const { toggleWishlist, isInWishlist } = useWishlist();
+    const { addToCart, isInCart } = useCart();
     const liked = isInWishlist(id);
+    const enCarrito = isInCart(id);
+
+    const handleAddToCart = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        addToCart({ id, title, category, price, image: image || fallbackImage });
+    };
     const isService = /servicio|service|api|microservicio|automatizacion|automation/i.test(String(category || ''));
     const intentClass = isService ? 'ds-intent-service' : 'ds-intent-product';
 
@@ -103,9 +112,15 @@ const ProductCard = ({ id, title, category, price, rating, reviews, image }) => 
                                 {price}€
                             </motion.span>
                         </div>
-                        <span className="ds-icon-neutral group/btn">
-                            <ShoppingCart className="w-5 h-5 text-zinc-600 dark:text-white group-hover/btn:text-white group-hover/btn:scale-110 transition-all" />
-                        </span>
+                        <button
+                            type="button"
+                            onClick={handleAddToCart}
+                            aria-label={enCarrito ? 'Añadir otra unidad al carrito' : 'Añadir al carrito'}
+                            title={enCarrito ? 'En el carrito · añadir otra unidad' : 'Añadir al carrito'}
+                            className={`ds-icon-neutral group/btn transition-all hover:scale-110 active:scale-95 ${enCarrito ? 'ring-2 ring-primary/60' : ''}`}
+                        >
+                            <ShoppingCart className={`w-5 h-5 transition-all group-hover/btn:scale-110 ${enCarrito ? 'text-primary' : 'text-zinc-600 dark:text-white group-hover/btn:text-white'}`} />
+                        </button>
                     </div>
                 </div>
             </motion.article>

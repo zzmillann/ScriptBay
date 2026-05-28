@@ -11,6 +11,7 @@ import { postRegistrarCompraCrypto } from '../services/cryptoClient';
 import { getSession } from '../services/authClient';
 import { apiUrl } from '../services/apiBase';
 import { normalizeImageUrl } from '../utils/imageUrl';
+import { buildProductSpecs } from '../utils/productSpecs';
 import { buildPurchaseExperience, formatEthPrice, formatEurPrice } from '../data/purchaseExperience';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
@@ -93,6 +94,8 @@ const ProductDetail = () => {
         if (data.codigo === 0 && data.producto) {
           const p = data.producto;
           const v = p.perfiles;
+          const categoria = p.categoria || p.tipo || 'General';
+          const specs = buildProductSpecs({ id: p.id, title: p.titulo, category: categoria });
 
           setProduct({
             id: p.id,
@@ -102,13 +105,14 @@ const ProductDetail = () => {
             price: p.precio,
             precio_sbt: p.precio_sbt,
             image: normalizeImageUrl(p.imagen) || `https://picsum.photos/seed/${p.id}/1200/900`,
-            category: p.categoria || p.tipo || 'General',
-            rating: 5.0,
-            reviews: 0,
+            category: categoria,
+            rating: p.reviews > 0 ? p.rating : 5.0,
+            reviews: p.reviews || 0,
+            ventas: p.ventas || 0,
             badges: ['Verificado'],
-            characteristics: ['Verificado por ScriptBay', 'Código original', 'Soporte del autor'],
-            includes: ['Código fuente', 'Documentación básica'],
-            requirements: ['Entorno Node.js', 'Conexión a internet'],
+            characteristics: specs.characteristics,
+            includes: specs.includes,
+            requirements: specs.requirements,
             vendor: {
               name: v?.nombre || 'Usuario Market',
               avatar: v?.nombre ? v.nombre.substring(0, 2).toUpperCase() : 'UM'
@@ -387,9 +391,20 @@ const ProductDetail = () => {
   };
   const trustBadges = ['🔥 Top ventas', '⚡ Entrega inmediata', '✔ Verificado'];
   const idForCalculation = Number(product.id) || 0;
-  const salesCount = (product.reviews || 0) * 6 + idForCalculation * 5;
+  // Si viene de backend usamos las ventas reales; en demos, la formula de relleno.
+  const salesCount = product.ventas != null
+    ? product.ventas
+    : (product.reviews || 0) * 6 + idForCalculation * 5;
   const backTarget = location.state?.from || '/';
   const backLabel = location.state?.fromLabel || 'Volver';
+
+  // Solo mostramos la seccion de ownership si hay datos reales:
+  // o bien una tx real (tras una compra), o bien una wallet conectada de verdad.
+  const walletConectada = isConnected && Boolean(address);
+  const mostrarOwnership = ownership.hasRealTx || walletConectada;
+  const ownershipWalletShort = walletConectada
+    ? `${address.slice(0, 6)}...${address.slice(-4)}`
+    : ownership.walletShort;
 
   const handleCopyValue = async (value, key) => {
     try {
@@ -450,8 +465,12 @@ const ProductDetail = () => {
                 <div className="mt-5 flex items-center gap-3 text-sm text-faint">
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                   <span>{product.rating} · {product.reviews} reviews</span>
-                  <span className="text-zinc-300 dark:text-white/35">•</span>
-                  <span className="font-medium text-subtle">+{salesCount} ventas</span>
+                  {salesCount > 0 && (
+                    <>
+                      <span className="text-zinc-300 dark:text-white/35">•</span>
+                      <span className="font-medium text-subtle">+{salesCount} ventas</span>
+                    </>
+                  )}
                 </div>
 
                 <div className="mt-7 flex items-end justify-between gap-5">
@@ -517,16 +536,6 @@ const ProductDetail = () => {
                     )}
                   </div>
                 </div>
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Asset verificable</p>
-                    <p className="mt-2 text-sm text-base-primary">Wallet {ownership.walletShort}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Tx registrada</p>
-                    <p className="mt-2 font-mono text-sm text-base-primary">{ownership.txHashShort}</p>
-                  </div>
-                </div>
               </div>
 
               <div className={sectionClass}>
@@ -555,7 +564,7 @@ const ProductDetail = () => {
 
           <motion.div variants={itemVariants} className="grid gap-6 md:grid-cols-3">
             <div className={sectionClass}>
-              <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><span className="text-lg">⚙️</span><ShieldCheck className="h-4 w-4 text-violet-500 dark:text-violet-300" /> Características</h3>
+              <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><ShieldCheck className="h-4 w-4 text-violet-500 dark:text-violet-300" /> Características</h3>
               <ul className="space-y-2.5 text-sm text-dimmed">
                 {product.characteristics.map((item) => (
                   <li key={item}>• {item}</li>
@@ -563,7 +572,7 @@ const ProductDetail = () => {
               </ul>
             </div>
             <div className={sectionClass}>
-              <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><span className="text-lg">📦</span><PackageCheck className="h-4 w-4 text-red-500 dark:text-red-300" /> Incluye</h3>
+              <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><PackageCheck className="h-4 w-4 text-red-500 dark:text-red-300" /> Incluye</h3>
               <ul className="space-y-2.5 text-sm text-dimmed">
                 {product.includes.map((item) => (
                   <li key={item}>• {item}</li>
@@ -571,7 +580,7 @@ const ProductDetail = () => {
               </ul>
             </div>
             <div className={sectionClass}>
-              <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><span className="text-lg">📄</span><ClipboardList className="h-4 w-4 text-zinc-500 dark:text-white/80" /> Requisitos</h3>
+              <h3 className="mb-4 inline-flex items-center gap-2 text-base font-semibold text-base-primary"><ClipboardList className="h-4 w-4 text-zinc-500 dark:text-white/80" /> Requisitos</h3>
               <ul className="space-y-2.5 text-sm text-dimmed">
                 {product.requirements.map((item) => (
                   <li key={item}>• {item}</li>
@@ -580,6 +589,7 @@ const ProductDetail = () => {
             </div>
           </motion.div>
 
+          {mostrarOwnership && (
           <motion.div variants={itemVariants}>
             <div className={sectionClass}>
               <div className="flex items-start justify-between gap-4">
@@ -587,17 +597,23 @@ const ProductDetail = () => {
                   <h3 className="text-base font-semibold text-base-primary">Ownership y blockchain</h3>
                   <p className="mt-1 text-sm text-dimmed">Informacion tecnica util, sin teatralidad crypto.</p>
                 </div>
-                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${accentBadgeClass}`}>Licencia on-chain</span>
+                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${accentBadgeClass}`}>
+                  {ownership.hasRealTx ? 'Licencia on-chain' : 'Wallet conectada'}
+                </span>
               </div>
               <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Wallet propietaria</p>
-                  <p className="mt-2 font-mono text-sm text-base-primary">{ownership.walletShort}</p>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">
+                    {ownership.hasRealTx ? 'Wallet propietaria' : 'Tu wallet'}
+                  </p>
+                  <p className="mt-2 font-mono text-sm text-base-primary">{ownershipWalletShort}</p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Tx hash</p>
-                  <p className="mt-2 font-mono text-sm text-base-primary">{ownership.txHashShort}</p>
-                </div>
+                {ownership.hasRealTx && (
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Tx hash</p>
+                    <p className="mt-2 font-mono text-sm text-base-primary">{ownership.txHashShort}</p>
+                  </div>
+                )}
                 {ownership.hasMintDate && (
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Fecha de compra</p>
@@ -611,6 +627,7 @@ const ProductDetail = () => {
               </div>
             </div>
           </motion.div>
+          )}
 
           {relatedProducts.length > 0 && (
             <motion.div variants={itemVariants}>

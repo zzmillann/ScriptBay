@@ -221,6 +221,12 @@ objetoRouter.get('/ObtenerProductoPorId/:id', async (req, res, next) => {
 
         const ratingSummary = buildReviewSummary(productReviews || []);
 
+        // Numero real de ventas: filas en 'compras' para este producto.
+        const { count: ventasCount } = await supabase
+            .from('compras')
+            .select('id', { count: 'exact', head: true })
+            .eq('producto_id', producto.id);
+
         res.status(200).send({
             codigo: 0,
             producto: {
@@ -228,6 +234,7 @@ objetoRouter.get('/ObtenerProductoPorId/:id', async (req, res, next) => {
                 perfiles: perfil,
                 rating: ratingSummary.average,
                 reviews: ratingSummary.total,
+                ventas: ventasCount || 0,
                 rating_summary: ratingSummary
             }
         });
@@ -271,10 +278,24 @@ objetoRouter.get('/ObtenerProductos', async (req, res, next) => {
             );
         }
 
+        // Adjuntamos el perfil del vendedor (nombre/avatar) para mostrarlo en las tarjetas.
+        const sellerIds = [...new Set((data || []).map((product) => product.user_id).filter(Boolean))];
+        let perfilesMap = {};
+
+        if (sellerIds.length > 0) {
+            const { data: perfiles } = await supabase
+                .from('perfiles')
+                .select('id, nombre, avatar_url')
+                .in('id', sellerIds);
+
+            perfilesMap = Object.fromEntries((perfiles || []).map((perfil) => [perfil.id, perfil]));
+        }
+
         const enrichedProducts = (data || []).map((product) => {
             const ratingSummary = ratingsMap[product.id] || { average: 0, total: 0, distribution: [] };
             return {
                 ...product,
+                perfiles: perfilesMap[product.user_id] || null,
                 rating: ratingSummary.average,
                 reviews: ratingSummary.total,
                 rating_summary: ratingSummary
@@ -604,6 +625,138 @@ objetoRouter.post('/PagarProducto', async (req, res, next) => {
 
     }
 
+});
+
+// ─── CHECKOUT DEL CARRITO (varios productos, un solo cobro y un solo NFT) ─────
+objetoRouter.post('/PagarCarrito', async (req, res, next) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token) throw new Error('No autorizado');
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError) throw authError;
+
+        const { items, metodoPago, wallet } = req.body;
+        if (!Array.isArray(items) || items.length === 0) throw new Error('El carrito está vacío');
+
+        console.log('=== INICIO PAGO CARRITO ===');
+        console.log('Comprador:', user.email, '| items:', items.length, '| wallet:', wallet || '(sin wallet)');
+
+        // Normalizamos cada linea: precio total = precio unitario * cantidad.
+        const isValidUUID = (id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id || ''));
+        const lineas = items.map((it) => {
+            const cantidad = Math.max(1, Number(it.qty) || 1);
+            const precioUnit = Number(it.precio) || 0;
+            return {
+                id: it.id,
+                titulo: it.titulo || 'Producto ScriptBay',
+                cantidad,
+                total: precioUnit * cantidad,
+            };
+        });
+
+        const totalCarrito = lineas.reduce((acc, l) => acc + l.total, 0);
+        if (totalCarrito <= 0) throw new Error('El total del carrito no es válido');
+
+        const titulosResumen = lineas.map((l) => l.titulo).join(', ');
+        const descripcion = `Compra ScriptBay (${lineas.length} productos): ${titulosResumen}`.slice(0, 480);
+
+        // 1) Cliente Stripe (reutilizamos el del perfil si existe)
+        const { data: perfil } = await supabase
+            .from('perfiles')
+            .select('nombre, ubicacion, stripe_customer_id')
+            .eq('id', user.id)
+            .single();
+
+        const nombreCliente = perfil?.nombre || user.email;
+        let customerIdStripe = perfil?.stripe_customer_id || null;
+
+        if (!customerIdStripe) {
+            customerIdStripe = await stripeService.Stage1_CreateCustomer(nombreCliente, user.email, perfil?.ubicacion);
+            if (!customerIdStripe) throw new Error('No se ha podido crear el CUSTOMER en Stripe');
+            await supabase.from('perfiles').update({ stripe_customer_id: customerIdStripe }).eq('id', user.id);
+        }
+
+        // 2) Tarjeta
+        const cardIdStripe = await stripeService.Stage2_CreateCardForCustomer(customerIdStripe, metodoPago || 'visa');
+        if (!cardIdStripe) throw new Error('No se ha podido crear la CARD en Stripe');
+
+        // 3) Un solo cargo por el TOTAL + un solo NFT (si hay wallet) para toda la compra
+        const resultadoPago = await stripeService.Stage3_CreateChargeForCustomer(
+            customerIdStripe,
+            cardIdStripe,
+            totalCarrito,
+            descripcion,
+            wallet
+        );
+        if (!resultadoPago) throw new Error('No se ha podido procesar el pago en Stripe');
+
+        const { idPaymentIntent, compraBlockchain, tokenId } = resultadoPago;
+        console.log('Carrito pagado - PaymentIntent:', idPaymentIntent, '| Total:', totalCarrito, 'EUR | tokenId:', tokenId);
+
+        // 4) Una fila de compra por cada producto (misma transaccion y mismo hash blockchain)
+        const filasCompra = lineas.map((l) => ({
+            user_id: user.id,
+            producto_id: isValidUUID(l.id) ? l.id : null,
+            titulo: l.titulo,
+            precio: l.total,
+            metodo_pago: 'Stripe',
+            id_transaccion: idPaymentIntent,
+            blockchain_hash: compraBlockchain || null,
+        }));
+
+        const { error: insertError } = await supabase.from('compras').insert(filasCompra);
+        if (insertError) console.log('[PagarCarrito] Error guardando compras:', insertError.message);
+
+        // 5) Notificar a cada vendedor (best-effort)
+        for (const l of lineas) {
+            if (!isValidUUID(l.id)) continue;
+            const { data: productoVendedor } = await supabase
+                .from('productos')
+                .select('user_id')
+                .eq('id', l.id)
+                .single();
+            if (productoVendedor?.user_id && productoVendedor.user_id !== user.id) {
+                await crearNotificacion(productoVendedor.user_id, 'compra', {
+                    titulo: l.titulo,
+                    precio: l.total,
+                    compradorId: user.id,
+                    productoId: l.id,
+                    metodo: 'Stripe',
+                });
+            }
+        }
+
+        // 6) Una sola factura por el total (best-effort)
+        const fechaPago = new Date();
+        const numFactura = `SB-${fechaPago.getFullYear()}${String(fechaPago.getMonth() + 1).padStart(2, '0')}${String(fechaPago.getDate()).padStart(2, '0')}-${idPaymentIntent.slice(-6).toUpperCase()}`;
+        generarFacturaPDF({
+            nombre: nombreCliente,
+            email: user.email,
+            titulo: `${lineas.length} productos: ${titulosResumen}`,
+            precio: totalCarrito,
+            idTransaccion: idPaymentIntent,
+            metodoPago: 'Stripe',
+            fecha: fechaPago,
+            blockchainHash: compraBlockchain || null,
+        }).then((pdfBuffer) => mailjetService.enviarFactura(process.env.MAILJET_EMAIL_FROM, nombreCliente, pdfBuffer, numFactura))
+          .catch((err) => console.log('[Factura] Error generando/enviando factura carrito:', err));
+
+        res.status(200).send({
+            codigo: 0,
+            mensaje: 'Pago del carrito procesado correctamente',
+            paymentIntentId: idPaymentIntent,
+            blockchainHash: compraBlockchain,
+            tokenId,
+            total: totalCarrito,
+            productos: lineas.length,
+        });
+
+    } catch (error) {
+        console.log('ERROR en /PagarCarrito:', error);
+        res.status(200).send({ codigo: 1, mensaje: error.message });
+    }
 });
 
 // ─── PAYPAL ──────────────────────────────────────────────────────────────────

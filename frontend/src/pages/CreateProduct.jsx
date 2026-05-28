@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
-import { Coins, Euro, FileText, ImagePlus, Tag } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Coins, Euro, FileText, ImagePlus, Tag, X } from 'lucide-react';
 import { clearSession, getValidSession } from '../services/authClient.js';
-import { normalizeImageUrl } from '../utils/imageUrl.js';
 import ScanProgressModal from '../components/ScanProgressModal.jsx';
 
 const parseApiResponse = async (response, defaultMessage) => {
@@ -15,11 +15,13 @@ const parseApiResponse = async (response, defaultMessage) => {
   return response.json();
 };
 
+// Referencia EUR/ETH usada en el resto de la app (purchaseExperience.js / ProductDetail).
+const EUR_POR_ETH = 3490;
+
 const initialForm = {
   tipo: 'producto',
   titulo: '',
   descripcion: '',
-  imagen: '',
   archivo: null,
   categoria: '',
   precio: '',
@@ -31,9 +33,17 @@ const initialForm = {
 };
 
 const CreateProduct = () => {
+  const navigate = useNavigate();
+  // Cuando una publicacion termina bien, al cerrar el modal redirigimos al marketplace.
+  const redirigirRef = useRef(false);
   const [formData, setFormData] = useState(initialForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
+
+  // Imagen del producto como archivo (con vista previa) + estado de drag&drop.
+  const [imagenFile, setImagenFile] = useState(null);
+  const [imagenPreview, setImagenPreview] = useState('');
+  const [dragActivo, setDragActivo] = useState(null); // 'imagen' | 'archivo' | null
 
   // Estado del modal de escaneo IA
   const [scanModal, setScanModal] = useState({
@@ -44,6 +54,11 @@ const CreateProduct = () => {
   });
 
   const isProduct = useMemo(() => formData.tipo === 'producto', [formData.tipo]);
+
+  // Precio en SBT calculado automaticamente desde el precio en EUR (1 EUR ≈ 1 SBT de referencia).
+  const precioNum = Number(formData.precio) || 0;
+  const precioSbtAuto = precioNum;
+  const ethEquivalente = precioNum / EUR_POR_ETH;
   const accentInteractiveClass = isProduct
     ? 'focus:border-violet-500 focus:shadow-[0_0_15px_rgba(168,85,247,0.3)]'
     : 'focus:border-blue-500 focus:shadow-[0_0_15px_rgba(59,130,246,0.3)]';
@@ -96,6 +111,44 @@ const CreateProduct = () => {
     setFormData((prev) => ({ ...prev, archivo: file }));
   };
 
+  const handleImagenSeleccionada = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setFeedback({ type: 'error', message: 'La imagen debe ser un archivo de imagen (PNG, JPG, WEBP...).' });
+      return;
+    }
+    setImagenFile(file);
+    setImagenPreview(URL.createObjectURL(file));
+    setFeedback({ type: '', message: '' });
+  };
+
+  const quitarImagen = () => {
+    setImagenFile(null);
+    setImagenPreview('');
+  };
+
+  const handleDragOver = (event, destino) => {
+    event.preventDefault();
+    setDragActivo(destino);
+  };
+
+  const handleDragLeave = (event) => {
+    event.preventDefault();
+    setDragActivo(null);
+  };
+
+  const handleDrop = (event, destino) => {
+    event.preventDefault();
+    setDragActivo(null);
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    if (destino === 'imagen') {
+      handleImagenSeleccionada(file);
+    } else {
+      setFormData((prev) => ({ ...prev, archivo: file }));
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -112,7 +165,9 @@ const CreateProduct = () => {
     fd.append('tipo', formData.tipo);
     fd.append('titulo', formData.titulo.trim());
     fd.append('descripcion', formData.descripcion.trim());
-    fd.append('imagen', normalizeImageUrl(formData.imagen) || '');
+    if (imagenFile instanceof File) {
+      fd.append('imagen', imagenFile, imagenFile.name);
+    }
 
     if (formData.tipo === 'producto') {
       fd.append('categoria', formData.categoria.trim());
@@ -127,7 +182,8 @@ const CreateProduct = () => {
     }
 
     fd.append('precio', formData.precio === '' ? '' : String(Number(formData.precio)));
-    fd.append('precio_sbt', formData.precio_sbt === '' ? '' : String(Number(formData.precio_sbt)));
+    // El precio en SBT se calcula automaticamente desde el precio en EUR.
+    fd.append('precio_sbt', formData.precio === '' ? '' : String(precioSbtAuto));
 
     try {
       const session = await getValidSession();
@@ -184,6 +240,8 @@ const CreateProduct = () => {
           veredicto: data.veredicto || { motivo: 'ok', detalle: 'Archivo limpio', score: 100 },
           mensajeError: '',
         });
+        // Al cerrar el modal de veredicto redirigimos al marketplace.
+        redirigirRef.current = true;
       }
       setFeedback({
         type: 'success',
@@ -193,6 +251,12 @@ const CreateProduct = () => {
         ...initialForm,
         tipo: prev.tipo,
       }));
+      quitarImagen();
+
+      // Sin archivo no hay modal: vamos al marketplace tras mostrar el aviso de exito.
+      if (!tieneArchivo) {
+        setTimeout(() => navigate('/'), 1200);
+      }
     } catch (error) {
       if (tieneArchivo) {
         setScanModal({
@@ -286,36 +350,88 @@ const CreateProduct = () => {
               <div className={`${sectionClass} ${sectionInteractiveClass}`}>
                 <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-subtle">Contenido</h2>
                 <div>
-                  <label htmlFor="imagen" className={labelClass}>
-                    Imagen (URL)
-                  </label>
-                  <div className="relative">
-                    <ImagePlus className={iconClass} />
+                  <label className={labelClass}>Imagen del producto</label>
+                  <label
+                    htmlFor="imagenFile"
+                    onDrop={(e) => handleDrop(e, 'imagen')}
+                    onDragOver={(e) => handleDragOver(e, 'imagen')}
+                    onDragLeave={handleDragLeave}
+                    className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-all duration-300 ${
+                      dragActivo === 'imagen'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-zinc-300 dark:border-white/15 bg-zinc-50 dark:bg-black/40 hover:border-zinc-400 dark:hover:border-white/25'
+                    }`}
+                  >
+                    {imagenPreview ? (
+                      <img src={imagenPreview} alt="Vista previa" className="max-h-44 w-auto rounded-lg object-cover" />
+                    ) : (
+                      <>
+                        <ImagePlus className={`h-7 w-7 ${dynamicIconClass}`} />
+                        <p className="text-sm text-zinc-600 dark:text-white/75">Arrastra una imagen aquí o haz clic para seleccionarla</p>
+                        <p className="text-xs text-faint">PNG, JPG o WEBP · máx. 5 MB</p>
+                      </>
+                    )}
                     <input
-                      id="imagen"
-                      name="imagen"
-                      type="url"
-                      required
-                      value={formData.imagen}
-                      onChange={handleInputChange}
-                      className={inputWithIcon}
-                      placeholder="https://..."
+                      id="imagenFile"
+                      name="imagenFile"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleImagenSeleccionada(e.target.files?.[0] || null)}
                     />
-                  </div>
+                  </label>
+                  {imagenFile && (
+                    <div className="mt-2 flex items-center justify-between gap-2 text-xs text-dimmed">
+                      <span className="truncate">{imagenFile.name} · {(imagenFile.size / 1024).toFixed(0)} KB</span>
+                      <button type="button" onClick={quitarImagen} className="inline-flex items-center gap-1 text-primary hover:underline">
+                        <X className="h-3 w-3" /> Quitar
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {isProduct && (
                   <div>
-                    <label htmlFor="archivo" className={labelClass}>
-                      Archivo
+                    <label className={labelClass}>Archivo del producto</label>
+                    <label
+                      htmlFor="archivo"
+                      onDrop={(e) => handleDrop(e, 'archivo')}
+                      onDragOver={(e) => handleDragOver(e, 'archivo')}
+                      onDragLeave={handleDragLeave}
+                      className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-all duration-300 ${
+                        dragActivo === 'archivo'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-zinc-300 dark:border-white/15 bg-zinc-50 dark:bg-black/40 hover:border-zinc-400 dark:hover:border-white/25'
+                      }`}
+                    >
+                      <FileText className={`h-7 w-7 ${dynamicIconClass}`} />
+                      {formData.archivo instanceof File ? (
+                        <p className="text-sm text-zinc-700 dark:text-white/85">{formData.archivo.name} · {(formData.archivo.size / 1024).toFixed(0)} KB</p>
+                      ) : (
+                        <>
+                          <p className="text-sm text-zinc-600 dark:text-white/75">Arrastra el archivo aquí o haz clic para seleccionarlo</p>
+                          <p className="text-xs text-faint">Código, ZIP o documento · máx. 5 MB</p>
+                        </>
+                      )}
+                      <input
+                        id="archivo"
+                        name="archivo"
+                        type="file"
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
                     </label>
-                    <input
-                      id="archivo"
-                      name="archivo"
-                      type="file"
-                      onChange={handleFileChange}
-                      className={`${inputBase} file:mr-3 file:rounded-lg file:border file:border-zinc-300 dark:file:border-white/15 file:bg-zinc-100 dark:file:bg-[#151515] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 dark:file:text-white/85 hover:file:border-zinc-400 dark:hover:file:border-white/25 hover:file:bg-zinc-200 dark:hover:file:bg-[#1b1b1b]`}
-                    />
+                    {formData.archivo instanceof File && (
+                      <div className="mt-2 text-right text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, archivo: null }))}
+                          className="inline-flex items-center gap-1 text-primary hover:underline"
+                        >
+                          <X className="h-3 w-3" /> Quitar archivo
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -361,22 +477,15 @@ const CreateProduct = () => {
                       </div>
                     </div>
                     <div>
-                      <label htmlFor="precio_sbt" className={labelClass}>
-                        Precio en SBT <span className="text-faint font-normal">(opcional)</span>
+                      <label className={labelClass}>
+                        Precio en SBT <span className="text-faint font-normal">(automático)</span>
                       </label>
-                      <div className="relative">
-                        <Coins className={`${iconRightClass} !text-amber-400`} />
-                        <input
-                          id="precio_sbt"
-                          name="precio_sbt"
-                          type="number"
-                          min="0"
-                          step="0.0001"
-                          value={formData.precio_sbt}
-                          onChange={handleInputChange}
-                          className={inputWithIconRight}
-                          placeholder="Por defecto = mismo numero que EUR"
-                        />
+                      <div className="flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/5 px-4 py-3">
+                        <Coins className="h-5 w-5 shrink-0 text-amber-400" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-amber-600 dark:text-amber-300">≈ {precioSbtAuto.toFixed(2)} SBT</p>
+                          <p className="text-[11px] text-faint">Calculado desde el precio en EUR · ≈ {ethEquivalente.toFixed(4)} ETH</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -406,22 +515,15 @@ const CreateProduct = () => {
                       </div>
                     </div>
                     <div>
-                      <label htmlFor="precio_sbt" className={labelClass}>
-                        Precio en SBT <span className="text-faint font-normal">(opcional)</span>
+                      <label className={labelClass}>
+                        Precio en SBT <span className="text-faint font-normal">(automático)</span>
                       </label>
-                      <div className="relative">
-                        <Coins className={`${iconRightClass} !text-amber-400`} />
-                        <input
-                          id="precio_sbt"
-                          name="precio_sbt"
-                          type="number"
-                          min="0"
-                          step="0.0001"
-                          value={formData.precio_sbt}
-                          onChange={handleInputChange}
-                          className={inputWithIconRight}
-                          placeholder="Por defecto = mismo numero que EUR"
-                        />
+                      <div className="flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/5 px-4 py-3">
+                        <Coins className="h-5 w-5 shrink-0 text-amber-400" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-amber-600 dark:text-amber-300">≈ {precioSbtAuto.toFixed(2)} SBT</p>
+                          <p className="text-[11px] text-faint">Calculado desde el precio en EUR · ≈ {ethEquivalente.toFixed(4)} ETH</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -524,8 +626,15 @@ const CreateProduct = () => {
         estado={scanModal.estado}
         veredicto={scanModal.veredicto}
         mensajeError={scanModal.mensajeError}
-        onCerrar={() => setScanModal((s) => ({ ...s, abierto: false }))}
+        onCerrar={() => {
+          setScanModal((s) => ({ ...s, abierto: false }));
+          if (redirigirRef.current) {
+            redirigirRef.current = false;
+            navigate('/');
+          }
+        }}
         onReintentar={() => {
+          redirigirRef.current = false;
           setScanModal({ abierto: false, estado: 'idle', veredicto: null, mensajeError: '' });
         }}
       />

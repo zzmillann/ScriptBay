@@ -39,12 +39,27 @@ const iconByMode = {
 
 const dataUrlToBlob = (dataUrl) => {
   try {
-    const [meta, base64] = dataUrl.split(',');
+    const [meta, base64] = String(dataUrl).split(',');
     const mime = /data:([^;]+)/.exec(meta || '')?.[1] || 'application/octet-stream';
-    const bin = atob(base64);
+    const limpio = (base64 || '').replace(/\s/g, '');
+    const bin = atob(limpio);
     const arr = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i += 1) arr[i] = bin.charCodeAt(i);
     return new Blob([arr], { type: mime });
+  } catch {
+    return null;
+  }
+};
+
+// Decodificacion robusta: usa el parser nativo del navegador (sirve para data URLs
+// y tambien para URLs http normales) si el metodo manual falla.
+const resolverBlob = async (archivo) => {
+  const manual = dataUrlToBlob(archivo);
+  if (manual && manual.size > 0) return manual;
+  try {
+    const res = await fetch(archivo);
+    const blob = await res.blob();
+    return blob && blob.size > 0 ? blob : null;
   } catch {
     return null;
   }
@@ -271,8 +286,8 @@ const PurchasedAssetWorkspace = () => {
       if (data.codigo !== 0) throw new Error(data.mensaje || 'No se pudo descargar el archivo');
       if (!data.archivo) throw new Error('El producto no tiene archivo asociado');
 
-      const blob = dataUrlToBlob(data.archivo);
-      if (!blob) throw new Error('Archivo corrupto');
+      const blob = await resolverBlob(data.archivo);
+      if (!blob) throw new Error('El archivo guardado no es válido. Pide al vendedor que vuelva a subir el producto con el fichero.');
 
       const ext = extensionPorMime(blob.type);
       const safeName = (data.titulo || purchase.title || 'producto').replace(/[^a-z0-9\-_]+/gi, '_');

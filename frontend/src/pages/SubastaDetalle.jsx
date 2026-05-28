@@ -600,8 +600,8 @@ const SubastaDetalle = () => {
                                     <p className="mt-1 text-sm font-semibold text-zinc-100">{pujas.length}</p>
                                 </div>
                                 <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
-                                    <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-500">Incremento</p>
-                                    <p className="mt-1 text-sm font-semibold text-zinc-100">+{incremento.toFixed(2)} EUR</p>
+                                    <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-500">Subida total</p>
+                                    <p className="mt-1 text-sm font-semibold text-zinc-100">+{Math.max(0, precioActual - precioSalida).toFixed(2)} EUR</p>
                                 </div>
                             </div>
 
