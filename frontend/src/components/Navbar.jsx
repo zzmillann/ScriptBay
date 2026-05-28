@@ -6,6 +6,7 @@ import { clearSession, getSession, postAuth } from '../services/authClient';
 import ProfilePreviewModal from './ProfilePreviewModal';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useWishlist } from '../context/WishlistContext';
+import { useCart } from '../context/CartContext';
 import { getCountNoLeidas, getMisNotificaciones, postMarcarLeida } from '../services/notificacionesClient';
 
 const Navbar = () => {
@@ -48,6 +49,7 @@ const Navbar = () => {
     const avatarInitial = username.charAt(0).toUpperCase();
     const productsPath = '/profile?tab=productos';
     const { wishlist } = useWishlist();
+    const { count: cartCount, openCart } = useCart();
 
     const tiempoRelativo = (fecha) => {
         const diff = Date.now() - new Date(fecha).getTime();
@@ -382,15 +384,21 @@ const Navbar = () => {
                                         </AnimatePresence>
                                     </div>
 
-                                    {/* Mis Compras */}
-                                    <Link
-                                        to="/mis-compras"
+                                    {/* Carrito */}
+                                    <button
+                                        type="button"
+                                        onClick={openCart}
                                         data-tour="tour-compras"
                                         className="icon-control relative flex items-center justify-center w-9 h-9"
-                                        aria-label="Mis compras"
+                                        aria-label="Abrir carrito"
                                     >
                                         <ShoppingCart className="w-[18px] h-[18px] text-faint" />
-                                    </Link>
+                                        {cartCount > 0 && (
+                                            <span className="absolute -top-1 -right-1 grid min-w-[18px] h-[18px] place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
+                                                {cartCount}
+                                            </span>
+                                        )}
+                                    </button>
 
                                     {/* Avatar + dropdown */}
                                     <div className="relative" ref={avatarMenuRef}>

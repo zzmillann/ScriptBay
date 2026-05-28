@@ -23,6 +23,8 @@ import SwapSBT from './pages/SwapSBT';
 import DesignSystemLab from './pages/DesignSystemLab';
 import ParticlesBackground from './components/ParticlesBackground';
 import { WishlistProvider } from './context/WishlistContext';
+import { CartProvider } from './context/CartContext';
+import CartSidebar from './components/CartSidebar';
 import ChatAssistant from './components/ChatAssistant';
 import OnboardingTour from './components/OnboardingTour';
 import Preloader from './components/Preloader';
@@ -78,6 +80,7 @@ const PageShell = () => {
       <ParticlesBackground />
       <div className="relative z-10 flex flex-col flex-grow">
         <Navbar />
+        <CartSidebar />
         <main className="flex-grow">
           <LayoutGroup id="product-navigation">
             <AnimatePresence mode="sync">
@@ -150,9 +153,11 @@ function App() {
     <Router>
       <MyWagmiProvider>
         <WishlistProvider>
-          <Preloader />
-          <BackendBootSync />
-          <PageShell />
+          <CartProvider>
+            <Preloader />
+            <BackendBootSync />
+            <PageShell />
+          </CartProvider>
         </WishlistProvider>
       </MyWagmiProvider>
     </Router>

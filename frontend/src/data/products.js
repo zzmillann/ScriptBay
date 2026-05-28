@@ -1,3 +1,5 @@
+import { buildProductSpecs } from '../utils/productSpecs';
+
 export const products = [
   { id: 1, title: 'Plantilla React E-commerce', category: 'Frontend', price: 49, rating: 4.8, reviews: 124 },
   { id: 2, title: 'Optimizador SEO Automático', category: 'Python', price: 29, rating: 4.9, reviews: 89 },
@@ -60,24 +62,6 @@ const badgeSets = [
   ['Popular'],
 ];
 
-const characteristicSets = [
-  ['Código limpio y documentado', 'Instalación en menos de 10 minutos', 'Compatible con últimas versiones'],
-  ['Arquitectura escalable', 'Buenas prácticas incluidas', 'Optimizado para rendimiento'],
-  ['UI moderna y responsive', 'Fácil personalización', 'Integración rápida'],
-];
-
-const includesSets = [
-  ['Código fuente completo', 'Guía de instalación PDF', 'Actualizaciones menores por 3 meses'],
-  ['Acceso a repositorio privado', 'Plantillas y ejemplos', 'Soporte básico por email'],
-  ['Assets y documentación', 'Checklist de despliegue', 'Snippet pack adicional'],
-];
-
-const requirementsSets = [
-  ['Node.js 18+', 'Conocimientos básicos de JavaScript', 'Cuenta en GitHub'],
-  ['Editor VS Code', 'Conocimientos intermedios de frontend', 'Entorno local configurado'],
-  ['Cuenta en proveedor cloud (opcional)', 'NPM o PNPM', 'Git instalado'],
-];
-
 const vendors = [
   { name: 'Enrique Studio', avatar: 'ES' },
   { name: 'Nova Labs', avatar: 'NL' },
@@ -87,11 +71,19 @@ const vendors = [
 
 const pickSet = (arr, id) => arr[id % arr.length];
 
+// Nombre del vendedor para un producto demo (determinista por id).
+export const getVendorName = (id) => {
+  const n = Number(id);
+  const idx = Number.isFinite(n) ? Math.abs(n) : 0;
+  return vendors[idx % vendors.length].name;
+};
+
 export const getProductById = (id) => {
   const product = products.find((item) => item.id === Number(id));
   if (!product) return null;
 
   const vendor = pickSet(vendors, product.id);
+  const specs = buildProductSpecs({ id: product.id, title: product.title, category: product.category });
 
   return {
     ...product,
@@ -99,9 +91,9 @@ export const getProductById = (id) => {
     description:
       'Solución digital pensada para acelerar tu flujo de trabajo con una implementación clara, estable y lista para producción. Incluye estructura profesional y foco en experiencia de usuario.',
     badges: pickSet(badgeSets, product.id),
-    characteristics: pickSet(characteristicSets, product.id),
-    includes: pickSet(includesSets, product.id),
-    requirements: pickSet(requirementsSets, product.id),
+    characteristics: specs.characteristics,
+    includes: specs.includes,
+    requirements: specs.requirements,
     vendor,
   };
 };

@@ -45,6 +45,50 @@ const formatPrice = (value) => {
     return `${amount.toFixed(2)} €`;
 };
 
+// Convierte el data URL que devuelve el backend en un Blob binario real.
+const dataUrlToBlob = (dataUrl) => {
+    try {
+        const [meta, base64] = String(dataUrl).split(',');
+        const mime = /data:([^;]+)/.exec(meta || '')?.[1] || 'application/octet-stream';
+        const limpio = (base64 || '').replace(/\s/g, '');
+        const bin = atob(limpio);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i += 1) arr[i] = bin.charCodeAt(i);
+        return new Blob([arr], { type: mime });
+    } catch {
+        return null;
+    }
+};
+
+// Decodificacion robusta con respaldo en el parser nativo del navegador.
+const resolverBlob = async (archivo) => {
+    const manual = dataUrlToBlob(archivo);
+    if (manual && manual.size > 0) return manual;
+    try {
+        const res = await fetch(archivo);
+        const blob = await res.blob();
+        return blob && blob.size > 0 ? blob : null;
+    } catch {
+        return null;
+    }
+};
+
+const extensionPorMime = (mime) => {
+    const map = {
+        'application/zip': 'zip',
+        'application/x-zip-compressed': 'zip',
+        'application/json': 'json',
+        'application/pdf': 'pdf',
+        'text/plain': 'txt',
+        'text/javascript': 'js',
+        'text/x-python': 'py',
+        'application/x-tar': 'tar',
+        'application/gzip': 'gz',
+        'application/octet-stream': 'bin',
+    };
+    return map[mime] || 'bin';
+};
+
 const looksLikeInternalCode = (value) => {
     const text = String(value || '').trim();
     if (!text) return true;
@@ -451,28 +495,42 @@ const MisCompras = () => {
 
     const handleDownload = async (item) => {
         setDownloadingId(item.id);
+        setError(null);
         try {
             const session = await getValidSession();
             if (!session?.accessToken) throw new Error('Necesitas iniciar sesion para descargar este asset.');
 
-            const response = await fetch(`${API}/DescargarArchivoCompra/${item.id}`, {
+            // Si tenemos el id del producto usamos ese endpoint; si no, descargamos por id de compra.
+            const path = item.productId
+                ? `${API}/DescargarArchivo/${item.productId}`
+                : `${API}/DescargarArchivoCompra/${item.id}`;
+
+            const response = await fetch(path, {
                 headers: { Authorization: `Bearer ${session.accessToken}` }
             });
 
-            if (!response.ok) {
-                const payload = await response.json().catch(() => null);
-                throw new Error(payload?.mensaje || 'No se pudo descargar el asset.');
+            // El backend responde JSON { codigo, titulo, archivo(dataURL) }, no el binario directo.
+            const data = await response.json().catch(() => null);
+            if (!data || data.codigo !== 0 || !data.archivo) {
+                throw new Error(data?.mensaje || 'Este producto no tiene archivo descargable.');
             }
 
-            const blob = await response.blob();
+            const blob = await resolverBlob(data.archivo);
+            if (!blob) throw new Error('El archivo guardado no es válido. Pide al vendedor que vuelva a subir el producto con el fichero.');
+
+            const ext = extensionPorMime(blob.type);
+            const safeName = (data.titulo || item.title || 'asset-scriptbay')
+                .replace(/[^a-z0-9\-_]+/gi, '_')
+                .toLowerCase();
+
             const url = window.URL.createObjectURL(blob);
             const anchor = document.createElement('a');
             anchor.href = url;
-            anchor.download = `${item.title.replace(/\s+/g, '-').toLowerCase() || 'asset-scriptbay'}`;
+            anchor.download = `${safeName}.${ext}`;
             document.body.appendChild(anchor);
             anchor.click();
             anchor.remove();
-            window.URL.revokeObjectURL(url);
+            setTimeout(() => window.URL.revokeObjectURL(url), 1200);
         } catch (err) {
             setError(err.message);
         } finally {

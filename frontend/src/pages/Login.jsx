@@ -37,8 +37,8 @@ const Login = () => {
             }
 
             console.log('[AUTH TRACE] login correcto para:', data?.datosCliente?.email);
-            setMensaje('Login correcto. Redirigiendo al perfil...');
-            navigate('/profile');
+            setMensaje('Login correcto. Redirigiendo...');
+            navigate('/');
         } catch (error) {
             console.error('[AUTH TRACE] error de red en login', error);
             setMensaje('Error de red al iniciar sesión. Revisa backend y consola.');

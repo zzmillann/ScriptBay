@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Terminal, Github, Mail, Lock, User, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { postAuth } from '../services/authClient';
 
 const Register = () => {
+    const navigate = useNavigate();
     const [nombre, setNombre] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -28,10 +29,11 @@ const Register = () => {
 
             console.log('[AUTH TRACE] registro correcto para:', email);
             localStorage.setItem('scriptbay_just_registered', '1');
-            setMensaje(`${data.mensaje}. Ahora puedes iniciar sesión.`);
+            setMensaje(`${data.mensaje}. Redirigiendo al inicio de sesión...`);
             setNombre('');
             setEmail('');
             setPassword('');
+            navigate('/login');
         } catch (error) {
             console.error('[AUTH TRACE] error de red en registro', error);
             setMensaje('Error de red al registrarte. Revisa backend y consola.');
